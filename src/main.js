@@ -20,6 +20,58 @@ const modals = {
     contact: document.querySelector(".modal.contact"),
 };
 
+const INSTAGRAM_POSTS = {
+    workPC: [
+        "DRnOEjME21V"
+    ],
+    workCamera: [
+        "DRmC24WiKDg"
+    ],
+    workEvent: [
+        "DRjiuM0iLFj"
+    ],
+};
+
+function renderInstagramEmbeds(modalElement, modalKey) {
+    const contentEl = modalElement.querySelector(".modal-content");
+    if (!contentEl) return;
+
+    const ids = INSTAGRAM_POSTS[modalKey] || [];
+
+    if (ids.length === 0) {
+        contentEl.innerHTML = `
+            <p class="modal-empty">
+                https://www.instagram.com/p/DRnOEjME21V/embed
+            </p>
+        `;
+        return;
+    }
+
+    const iframesHtml = ids
+        .map(
+            (id) => `
+            <div class="insta-embed">
+                <iframe
+                    src="https://www.instagram.com/p/${id}/embed"
+                    width="400"
+                    height="480"
+                    frameborder="0"
+                    scrolling="no"
+                    allowtransparency="true">
+                </iframe>
+            </div>
+        `
+        )
+        .join("");
+
+    contentEl.innerHTML = `
+        <div class="insta-grid">
+            ${iframesHtml}
+        </div>
+    `;
+}
+
+
 let touchHappened = false;
 document.querySelectorAll(".modal-exit-button").forEach(button=>{
     button.addEventListener(
@@ -47,20 +99,25 @@ document.querySelectorAll(".modal-exit-button").forEach(button=>{
 
 let isModalOpen = false;
 
-const showModal = (modal) => {
+const showModal = (modal, modalKey = null) => {
     modal.style.display = "block";
     isModalOpen = true;
     controls.enabled = false;
 
-    if(currentHoveredObject){
-        playHoverAnimation(currentHoveredObject, false)
-        currentHoveredObject = null
+    if (currentHoveredObject) {
+        playHoverAnimation(currentHoveredObject, false);
+        currentHoveredObject = null;
     }
     document.body.style.cursor = "default";
     currentIntersects = [];
 
+    // 🔁 fill Instagram posts for the work modals
+    if (modalKey && ["workPC", "workCamera", "workEvent"].includes(modalKey)) {
+        renderInstagramEmbeds(modal, modalKey);
+    }
+
     gsap.set(modal, {
-        opacity: 0
+        opacity: 0,
     });
 
     gsap.to(modal, {
@@ -167,16 +224,16 @@ function handleRaycasterInteraction() {
         });
 
         if (object.name.includes("workPC")){
-            showModal(modals.workPC);
+                showModal(modals.workPC, "workPC");
         }else if (object.name.includes("workCamera")){
-            showModal(modals.workCamera);
+                showModal(modals.workCamera, "workCamera");
         }else if (object.name.includes("workEvent")){
-            showModal(modals.workEvent);
+                showModal(modals.workEvent, "workEvent");
         }else if (object.name.includes("aboutMe")){
-            showModal(modals.aboutMe);
+                showModal(modals.aboutMe);
         }else if (object.name.includes("contact")){
-            showModal(modals.contact);
-        }
+                showModal(modals.contact);
+}
 
     }
 }
@@ -248,6 +305,9 @@ function playIntroAnimtion(){
         z: 1,
     });
 }
+
+
+
 
 const camera = new THREE.PerspectiveCamera( 
     35, 
