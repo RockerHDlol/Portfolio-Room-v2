@@ -1,0 +1,49 @@
+@use "./styles/fonds.scss";
+@use "./styles/reset.scss";
+@use "./styles/variables.scss" as vars;
+
+*{
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Marimpa", Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// Experience
+
+#experience {
+  position: fixed;
+  height: 100%;
+  width: 100%;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+
+  #experience-canvas{
+    height: 100%;
+    width: 100%;
+  }
+}
+
+//Modals
+.modal{
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  max-width: 700px;
+  width: 100%;
+  transform: translate(-50%, -50%);
+  font-size: 32px;
+  z-index:9999;
+  display: none;
+  background-color: vars.$base-white;
+}
