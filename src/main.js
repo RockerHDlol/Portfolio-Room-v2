@@ -1,15 +1,15 @@
-import * as THREE from 'three';
-import './style.scss'
-import { OrbitControls } from './utils/OrbitControls.js';
+import * as THREE from "three";
+import "./style.scss";
+import { OrbitControls } from "./utils/OrbitControls.js";
 // import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import gsap from "gsap"
+import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import gsap from "gsap";
 
-const canvas = document.querySelector("#experience-canvas")
+const canvas = document.querySelector("#experience-canvas");
 const sizes = {
     width: window.innerWidth,
-    height: window.innerHeight
+    height: window.innerHeight,
 };
 
 const modals = {
@@ -21,44 +21,37 @@ const modals = {
 };
 
 const INSTAGRAM_POSTS = {
-    workPC: [
-        "DRnOEjME21V"
-    ],
-    workCamera: [
-        "DRmC24WiKDg"
-    ],
-    workEvent: [
-        "DRjiuM0iLFj"
-    ],
+    workPC: ["DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V"],
+    workCamera: ["DRmC24WiKDg"],
+    workEvent: ["DRjiuM0iLFj", "DRPzD6oCLFZ"],
 };
 
+const headerDiv = document.getElementById("Header");
+if (headerDiv) {
+    headerDiv.remove();
+}
 function renderInstagramEmbeds(modalElement, modalKey) {
     const contentEl = modalElement.querySelector(".modal-content");
     if (!contentEl) return;
 
     const ids = INSTAGRAM_POSTS[modalKey] || [];
 
-    if (ids.length === 0) {
-        contentEl.innerHTML = `
-            <p class="modal-empty">
-                https://www.instagram.com/p/DRnOEjME21V/embed
-            </p>
-        `;
-        return;
-    }
-
     const iframesHtml = ids
         .map(
             (id) => `
-            <div class="insta-embed">
-                <iframe
-                    src="https://www.instagram.com/p/${id}/embed"
-                    width="400"
-                    height="480"
-                    frameborder="0"
-                    scrolling="no"
-                    allowtransparency="true">
-                </iframe>
+            <div class="iframe-wrapper">
+                <div class="insta-embed">
+                    <iframe
+                        src="https://www.instagram.com/p/${id}/embed/" // 'captioned/' verwenden
+                        width="320" // Iframe-Breite anpassen
+                        height="400" // Iframe-Höhe erhöhen, um Platz für das Verschieben zu schaffen
+                        frameborder="0"
+                        scrolling="no"
+                        allowtransparency="true"
+                        id="myIFrame">
+                    </iframe>
+                </div>
+                <div class="iframe-cover"></div>
             </div>
         `
         )
@@ -71,29 +64,28 @@ function renderInstagramEmbeds(modalElement, modalKey) {
     `;
 }
 
-
 let touchHappened = false;
-document.querySelectorAll(".modal-exit-button").forEach(button=>{
+document.querySelectorAll(".modal-exit-button").forEach((button) => {
     button.addEventListener(
-        "touchend", 
-        (e)=>{
-            touchHappened = true
+        "touchend",
+        (e) => {
+            touchHappened = true;
             e.preventDefault();
             const modal = e.target.closest(".modal");
             hideModal(modal);
         },
-        {passive: false}
+        { passive: false }
     );
 
     button.addEventListener(
-        "click", 
-        (e)=>{
+        "click",
+        (e) => {
             if (touchHappened) return;
             e.preventDefault();
             const modal = e.target.closest(".modal");
             hideModal(modal);
         },
-        {passive: false}
+        { passive: false }
     );
 });
 
@@ -132,7 +124,7 @@ const hideModal = (modal) => {
     gsap.to(modal, {
         opacity: 0,
         duration: 0.5,
-        onComplete: ()=>{
+        onComplete: () => {
             modal.style.display = "none";
             controls.enabled = true;
         },
@@ -147,7 +139,7 @@ const socialLinks = {
     YouTube: "https://www.youtube.com",
     Instagram: "https://www.instagram.com",
     Artstaion: "https://www.artstation.com",
-}
+};
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
@@ -173,48 +165,48 @@ const loadedTextures = {
     day: {},
 };
 
-Object.entries(textureMap).forEach(([key, paths])=>{
+Object.entries(textureMap).forEach(([key, paths]) => {
     const dayTexture = textureLoader.load(paths.day);
     dayTexture.flipY = false;
-    dayTexture.colorSpace = THREE.SRGBColorSpace
+    dayTexture.colorSpace = THREE.SRGBColorSpace;
     loadedTextures.day[key] = dayTexture;
 });
 
 const scene = new THREE.Scene();
 
-window.addEventListener("mousemove", (e)=>{
+window.addEventListener("mousemove", (e) => {
     touchHappened = false;
-    pointer.x = ( e.clientX / window.innerWidth ) * 2 - 1;
-	pointer.y = - ( e.clientY / window.innerHeight ) * 2 + 1; 
+    pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+    pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
 });
 
 window.addEventListener(
-    "touchstart", 
-    (e)=>{
-        if(isModalOpen) return;
-        e.preventDefault()
-        pointer.x = ( e.touches[0].clientX / window.innerWidth ) * 2 - 1;
-	    pointer.y = - ( e.touches[0].clientY / window.innerHeight ) * 2 + 1; 
-    }, 
-    {passive: false}
+    "touchstart",
+    (e) => {
+        if (isModalOpen) return;
+        e.preventDefault();
+        pointer.x = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
+        pointer.y = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
+    },
+    { passive: false }
 );
 
 window.addEventListener(
-    "touchend", 
-    (e)=>{
-        if(isModalOpen) return;
-        e.preventDefault()
-        handleRaycasterInteraction()
-    }, 
-    {passive: false}
+    "touchend",
+    (e) => {
+        if (isModalOpen) return;
+        e.preventDefault();
+        handleRaycasterInteraction();
+    },
+    { passive: false }
 );
 
 function handleRaycasterInteraction() {
-    if(currentIntersects.length> 0) {
+    if (currentIntersects.length > 0) {
         const object = currentIntersects[0].object;
 
-        Object.entries(socialLinks).forEach(([key, url]) =>{
-            if(object.name.includes(key)){
+        Object.entries(socialLinks).forEach(([key, url]) => {
+            if (object.name.includes(key)) {
                 const newWindow = window.open();
                 newWindow.opener = null;
                 newWindow.location = url;
@@ -223,40 +215,42 @@ function handleRaycasterInteraction() {
             }
         });
 
-        if (object.name.includes("workPC")){
-                showModal(modals.workPC, "workPC");
-        }else if (object.name.includes("workCamera")){
-                showModal(modals.workCamera, "workCamera");
-        }else if (object.name.includes("workEvent")){
-                showModal(modals.workEvent, "workEvent");
-        }else if (object.name.includes("aboutMe")){
-                showModal(modals.aboutMe);
-        }else if (object.name.includes("contact")){
-                showModal(modals.contact);
-}
-
+        if (object.name.includes("workPC")) {
+            showModal(modals.workPC, "workPC");
+        } else if (object.name.includes("workCamera")) {
+            showModal(modals.workCamera, "workCamera");
+        } else if (object.name.includes("workEvent")) {
+            showModal(modals.workEvent, "workEvent");
+        } else if (object.name.includes("aboutMe")) {
+            showModal(modals.aboutMe);
+        } else if (object.name.includes("contact")) {
+            showModal(modals.contact);
+        }
     }
 }
 
-
 window.addEventListener("click", handleRaycasterInteraction);
 
-let grandma2,
-    poster1;
+let grandma2, poster1;
 
-loader.load("/models/Room_Portfolio.glb", (glb)=> {
+loader.load("/models/Room_Portfolio.glb", (glb) => {
     glb.scene.traverse((child) => {
-        if(child.isMesh) {
-
-            if (child.name.includes("Raycaster")){
+        if (child.isMesh) {
+            if (child.name.includes("Raycaster")) {
                 raycasterObjects.push(child);
-            };
+            }
 
-            if (child.name.includes("Hover")){
-                child.userData.initialScale = new THREE.Vector3().copy(child.scale);
-                child.userData.initialPosition = new THREE.Vector3().copy(child.position);
-                child.userData.initialRotation = new THREE.Euler().copy(child.rotation);
-            };
+            if (child.name.includes("Hover")) {
+                child.userData.initialScale = new THREE.Vector3().copy(
+                    child.scale
+                );
+                child.userData.initialPosition = new THREE.Vector3().copy(
+                    child.position
+                );
+                child.userData.initialRotation = new THREE.Euler().copy(
+                    child.rotation
+                );
+            }
 
             // Check für start animation
             if (child.name.includes("AnimGrandMA")) {
@@ -266,16 +260,16 @@ loader.load("/models/Room_Portfolio.glb", (glb)=> {
                 poster1 = child;
                 child.scale.set(0, 0, 0);
             }
-            
+
             Object.keys(textureMap).forEach((key) => {
-                if(child.name.includes(key)) {
+                if (child.name.includes(key)) {
                     const material = new THREE.MeshBasicMaterial({
                         map: loadedTextures.day[key],
                     });
 
                     child.material = material;
 
-                    if(child.material.map){
+                    if (child.material.map) {
                         child.material.map.minFilter = THREE.LinearFilter;
                     }
                 }
@@ -283,10 +277,10 @@ loader.load("/models/Room_Portfolio.glb", (glb)=> {
         }
     });
     scene.add(glb.scene);
-    playIntroAnimtion()
+    playIntroAnimtion();
 });
 
-function playIntroAnimtion(){
+function playIntroAnimtion() {
     const t1 = gsap.timeline({
         defaults: {
             duration: 0.8,
@@ -294,42 +288,37 @@ function playIntroAnimtion(){
         },
     });
 
-    t1.to(grandma2.scale, {
-        x: 1,
-        y: 1,
-        z: 1,
-    },"-=0.4")
-    .to(poster1.scale, {
+    t1.to(
+        grandma2.scale,
+        {
+            x: 1,
+            y: 1,
+            z: 1,
+        },
+        "-=0.4"
+    ).to(poster1.scale, {
         x: 1,
         y: 1,
         z: 1,
     });
 }
 
-
-
-
-const camera = new THREE.PerspectiveCamera( 
-    35, 
-    sizes.width / sizes.height, 
-    0.1, 
-    1000 
+const camera = new THREE.PerspectiveCamera(
+    35,
+    sizes.width / sizes.height,
+    0.1,
+    1000
 );
-camera.position.set(
-    7.292723393732943,
-    4.254425417965636,
-    -3.927931283958101
-);
+camera.position.set(7.292723393732943, 4.254425417965636, -3.927931283958101);
 
-const renderer = new THREE.WebGLRenderer({ canvas:canvas, antialias: true });
-renderer.setSize( sizes.width, sizes.height );
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+renderer.setSize(sizes.width, sizes.height);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
 // const geometry = new THREE.BoxGeometry( 1, 1, 1 );
 // const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
 
-
-const controls = new OrbitControls( camera, renderer.domElement );
+const controls = new OrbitControls(camera, renderer.domElement);
 
 controls.minPolarAngle = Math.PI / 2.9;
 controls.maxPolarAngle = Math.PI / 2;
@@ -338,48 +327,44 @@ controls.maxAzimuthAngle = Math.PI / 1.5;
 // controls.minDistance = 3.5;
 controls.maxDistance = 10;
 
-controls.enableDamping = true; 
+controls.enableDamping = true;
 controls.dampingFactor = 0.03;
 controls.update();
-controls.target.set(
-    3.94312259152541,
-    3.833115424908893,
-    -4.81930484957838
-);
+controls.target.set(3.94312259152541, 3.833115424908893, -4.81930484957838);
 
 // Event Listeners
-window.addEventListener("resize", ()=>{
+window.addEventListener("resize", () => {
     sizes.width = window.innerWidth;
     sizes.height = window.innerHeight;
 
     // Update Camera
-    camera.aspect = sizes.width / sizes.height
-    camera.updateProjectionMatrix()
+    camera.aspect = sizes.width / sizes.height;
+    camera.updateProjectionMatrix();
 
     // Update renderer
-    renderer.setSize( sizes.width, sizes.height );
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-})
+    renderer.setSize(sizes.width, sizes.height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+});
 
-function playHoverAnimation (object, isHovering){
+function playHoverAnimation(object, isHovering) {
     gsap.killTweensOf(object.scale);
     gsap.killTweensOf(object.rotation);
     gsap.killTweensOf(object.position);
 
-    if(isHovering){
+    if (isHovering) {
         gsap.to(object.scale, {
-            x: object.userData.initialScale.x *1.2,
-            y: object.userData.initialScale.y *1.2,
-            z: object.userData.initialScale.z *1.2,
+            x: object.userData.initialScale.x * 1.2,
+            y: object.userData.initialScale.y * 1.2,
+            z: object.userData.initialScale.z * 1.2,
             duration: 0.5,
             ease: "bounce.out(1.8)",
         });
         gsap.to(object.rotation, {
-            x: object.userData.initialRotation.x *1.2,
+            x: object.userData.initialRotation.x * 1.2,
             duration: 0.5,
             ease: "bounce.out(1.8)",
         });
-    }else{
+    } else {
         gsap.to(object.scale, {
             x: object.userData.initialScale.x,
             y: object.userData.initialScale.y,
@@ -393,9 +378,9 @@ function playHoverAnimation (object, isHovering){
             ease: "bounce.out(1.8)",
         });
     }
-};
+}
 
-const render = () =>{
+const render = () => {
     controls.update();
 
     // console.log(camera.position);
@@ -403,21 +388,19 @@ const render = () =>{
     // console.log(controls.target);
 
     // Raycaster
-    if(!isModalOpen){
-
-        raycaster.setFromCamera( pointer, camera );
+    if (!isModalOpen) {
+        raycaster.setFromCamera(pointer, camera);
 
         currentIntersects = raycaster.intersectObjects(raycasterObjects);
 
-        for ( let i = 0; i < currentIntersects.length; i ++ ) {}
+        for (let i = 0; i < currentIntersects.length; i++) {}
 
         if (currentIntersects.length > 0) {
             const currentIntersectObject = currentIntersects[0].object;
 
             if (currentIntersectObject.name.includes("Hover")) {
-                if(currentIntersectObject !== currentHoveredObject){
-
-                    if(currentHoveredObject){
+                if (currentIntersectObject !== currentHoveredObject) {
+                    if (currentHoveredObject) {
                         playHoverAnimation(currentHoveredObject, false);
                     }
 
@@ -426,24 +409,23 @@ const render = () =>{
                 }
             }
 
-            if(currentIntersectObject.name.includes("Pointer")){
-                    document.body.style.cursor = "pointer";
-                }else{
-                    document.body.style.cursor = "default";
-                }
-            }else{
-                if(currentHoveredObject){
-                    playHoverAnimation(currentHoveredObject, false);
-                    currentHoveredObject = null;
-                }
+            if (currentIntersectObject.name.includes("Pointer")) {
+                document.body.style.cursor = "pointer";
+            } else {
                 document.body.style.cursor = "default";
+            }
+        } else {
+            if (currentHoveredObject) {
+                playHoverAnimation(currentHoveredObject, false);
+                currentHoveredObject = null;
+            }
+            document.body.style.cursor = "default";
         }
-
     }
 
-	renderer.render(scene, camera);
+    renderer.render(scene, camera);
 
     window.requestAnimationFrame(render);
-}
+};
 
 render();

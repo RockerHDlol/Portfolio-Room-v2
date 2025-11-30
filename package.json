@@ -15,5 +15,17 @@
     "gsap": "^3.12.7",
     "sass": "^1.85.1",
     "three": "^0.174.0"
-  }
+  },
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RockerHDlol/Portfolio-Room-v2.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/RockerHDlol/Portfolio-Room-v2/issues"
+  },
+  "homepage": "https://github.com/RockerHDlol/Portfolio-Room-v2#readme",
+  "description": ""
 }

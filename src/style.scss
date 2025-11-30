@@ -34,16 +34,105 @@
   }
 }
 
-//Modals
-.modal{
-  position: absolute;
+
+
+// ... (Deine Imports und allgemeinen Styles bleiben gleich)
+
+
+
+.modal {
+  position: fixed;
   top: 50%;
   left: 50%;
-  max-width: 700px;
-  width: 100%;
+  width: 90%;
+  
+  // *** NEU: Max-Breite erhöhen oder Scrollbar-Breite einplanen ***
+  // 3 Posts (310*3) + 2 Gaps (30*2) + Scrollbar (ca. 17px) = ~1007px
+  max-width: 1050px; // Erhöhen wir die max-width großzügig, um Platz zu garantieren.
+  
   transform: translate(-50%, -50%);
-  font-size: 32px;
-  z-index:9999;
+  background-color: #f9f9f9;
+  padding: 40px 30px;
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
   display: none;
-  background-color: vars.$base-white;
+  z-index: 9999;
+  
+  // *** NEU: Scrollbar für das gesamte Modal aktivieren ***
+  max-height: 90vh; // Modale Höhe begrenzen
+  overflow-y: auto;  // Scrollbar hier aktivieren
+
+  &::-webkit-scrollbar {
+    display: none; // Versteckt die Scrollbar-Leiste
+    width: 0; // Entfernt den Platz, den die Scrollbar einnimmt
+    height: 0; 
+  }
+
+  // 2. Für Internet Explorer und Edge (der ältere Weg)
+  -ms-overflow-style: none; /* IE and Edge */
+  
+  // 3. Für Firefox
+  scrollbar-width: none;  /* Firefox */
+}
+
+.modal-content {
+  // *** KORREKTUR: Scrollbar hier DEAKTIVIEREN, sonst doppelte Scrollbars! ***
+  overflow-y: visible; // oder hidden, aber visible ist besser für Flexbox
+  max-height: none; // Die Höhe wird jetzt vom .modal gesteuert
+}
+
+.insta-grid {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 30px;
+  // *** KORREKTUR: flex-wrap entfernen, wenn du das Umbrechen unbedingt verhindern willst. ***
+  // Ich lasse es drinnen, falls der Bildschirm zu klein ist, aber die Scrollbar wird jetzt anders behandelt.
+  flex-wrap: wrap; 
+  margin-top: 5px;
+  
+}
+.iframe-wrapper {
+  flex: 1 1 300px;
+  max-width: 290px;
+  height: 347px; // Beibehalten, um den sichtbaren Bereich festzulegen
+  
+
+  border-radius: 12px; // Rundung des Wrappers
+  overflow: hidden; // WICHTIG: Überschüssigen Inhalt (den Iframe-Kopf) verstecken
+  background: #ffffff;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  position: relative; // Für die absolute Positionierung des Iframes
+  
+    &:hover {
+    transform: translateY(-0px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+  }
+}
+
+.insta-embed {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.insta-embed iframe {
+  width: 290px;
+  height: 407px; // Iframe-Gesamthöhe
+  border: none;
+  
+  // *** WICHTIGE ANPASSUNG HIER ***
+  // Wir verschieben den Iframe nach oben, aber lassen oben einen kleinen Rand (z.B. 2px),
+  // damit die border-radius vom iframe selbst sichtbar wird.
+  // Dann wenden wir die border-radius auf das iframe an.
+  transform: translateY(-60px); // Beispiel: 60px minus 2px für die Rundung = -58px
+  border-radius: 12px; // Rundung direkt auf das Iframe anwenden
+  position: absolute;
+}
+
+.iframe-cover {
+  display: none;
 }
