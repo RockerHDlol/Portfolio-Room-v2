@@ -6,6 +6,12 @@ import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import gsap from "gsap";
 
+
+
+let initialCameraPosition = new THREE.Vector3();
+let initialControlsTarget = new THREE.Vector3();
+const cameraMoveDuration = 1.0; // Dauer der Kamerafahrt in Sekunden
+
 const canvas = document.querySelector("#experience-canvas");
 const sizes = {
     width: window.innerWidth,
@@ -24,6 +30,29 @@ const INSTAGRAM_POSTS = {
     workPC: ["DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V"],
     workCamera: ["DRmC24WiKDg"],
     workEvent: ["DRjiuM0iLFj", "DRPzD6oCLFZ"],
+};
+
+const cameraTargets = {
+    workPC: {
+        position: new THREE.Vector3(3.5, 4.5, -2.5), // Beispiel-Position
+        lookAt: new THREE.Vector3(3.0, 3.5, -3.0),   // Beispiel-Zielpunkt
+    },
+    workCamera: {
+        position: new THREE.Vector3(8.0, 4.0, -1.0),
+        lookAt: new THREE.Vector3(7.0, 3.5, -1.0),
+    },
+    workEvent: {
+        position: new THREE.Vector3(0.5, 5.0, -5.0),
+        lookAt: new THREE.Vector3(1.5, 4.0, -5.0),
+    },
+    aboutMe: {
+        position: new THREE.Vector3(5.0, 5.0, -8.0),
+        lookAt: new THREE.Vector3(4.0, 4.0, -7.0),
+    },
+    contact: {
+        position: new THREE.Vector3(1.0, 3.0, -3.0),
+        lookAt: new THREE.Vector3(2.0, 2.5, -3.5),
+    },
 };
 
 const headerDiv = document.getElementById("Header");
@@ -103,6 +132,11 @@ const showModal = (modal, modalKey = null) => {
     document.body.style.cursor = "default";
     currentIntersects = [];
 
+    if (modalKey && cameraTargets[modalKey]) {
+        const { position, lookAt } = cameraTargets[modalKey];
+        moveCameraTo(position, lookAt);
+    }
+
     // 🔁 fill Instagram posts for the work modals
     if (modalKey && ["workPC", "workCamera", "workEvent"].includes(modalKey)) {
         renderInstagramEmbeds(modal, modalKey);
@@ -121,12 +155,14 @@ const showModal = (modal, modalKey = null) => {
 const hideModal = (modal) => {
     isModalOpen = false;
 
+    moveCameraBackToInitial();
+
     gsap.to(modal, {
         opacity: 0,
         duration: 0.5,
         onComplete: () => {
             modal.style.display = "none";
-            controls.enabled = true;
+           // controls.enabled = true;
         },
     });
 };
@@ -311,6 +347,8 @@ const camera = new THREE.PerspectiveCamera(
 );
 camera.position.set(7.292723393732943, 4.254425417965636, -3.927931283958101);
 
+
+
 const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
 renderer.setSize(sizes.width, sizes.height);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -321,7 +359,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 const controls = new OrbitControls(camera, renderer.domElement);
 
 controls.minPolarAngle = Math.PI / 2.9;
-controls.maxPolarAngle = Math.PI / 2;
+controls.maxPolarAngle = Math.PI / 1;
 controls.minAzimuthAngle = Math.PI / 5;
 controls.maxAzimuthAngle = Math.PI / 1.5;
 // controls.minDistance = 3.5;
@@ -331,6 +369,9 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.03;
 controls.update();
 controls.target.set(3.94312259152541, 3.833115424908893, -4.81930484957838);
+
+initialCameraPosition.copy(camera.position);
+initialControlsTarget.copy(controls.target);
 
 // Event Listeners
 window.addEventListener("resize", () => {
@@ -379,6 +420,65 @@ function playHoverAnimation(object, isHovering) {
         });
     }
 }
+
+// NEUE Funktion: Kamerafahrt zu einer bestimmten Position
+function moveCameraTo(targetPosition, targetLookAt) {
+    controls.enabled = false; // Steuerung während der Fahrt deaktivieren
+
+    // Animation der Kamera-Position
+    gsap.to(camera.position, {
+        x: targetPosition.x,
+        y: targetPosition.y,
+        z: targetPosition.z,
+        duration: cameraMoveDuration,
+        ease: "power2.inOut",
+    });
+
+    // Animation des Controls-Ziels
+    gsap.to(controls.target, {
+        x: targetLookAt.x,
+        y: targetLookAt.y,
+        z: targetLookAt.z,
+        duration: cameraMoveDuration,
+        ease: "power2.inOut",
+        onUpdate: () => {
+            controls.update(); // Controls im Update-Loop aktualisieren
+        },
+        onComplete: () => {
+            controls.enabled = true; // Steuerung nach der Fahrt wieder aktivieren
+        }
+    });
+}
+
+// NEUE Funktion: Kamera zur Ausgangsposition zurückbewegen
+function moveCameraBackToInitial() {
+    controls.enabled = false; // Steuerung während der Fahrt deaktivieren
+
+    // Animation der Kamera-Position
+    gsap.to(camera.position, {
+        x: initialCameraPosition.x,
+        y: initialCameraPosition.y,
+        z: initialCameraPosition.z,
+        duration: cameraMoveDuration,
+        ease: "power2.inOut",
+    });
+
+    // Animation des Controls-Ziels
+    gsap.to(controls.target, {
+        x: initialControlsTarget.x,
+        y: initialControlsTarget.y,
+        z: initialControlsTarget.z,
+        duration: cameraMoveDuration,
+        ease: "power2.inOut",
+        onUpdate: () => {
+            controls.update(); // Controls im Update-Loop aktualisieren
+        },
+        onComplete: () => {
+            controls.enabled = true; // Steuerung nach der Fahrt wieder aktivieren
+        }
+    });
+}
+
 
 const render = () => {
     controls.update();
