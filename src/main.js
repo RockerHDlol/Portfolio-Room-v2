@@ -309,7 +309,11 @@ const camera = new THREE.PerspectiveCamera(
     0.1,
     1000
 );
-camera.position.set(7.292723393732943, 4.254425417965636, -3.927931283958101);
+
+
+
+
+
 
 const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
 renderer.setSize(sizes.width, sizes.height);
@@ -319,18 +323,43 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 // const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
 
 const controls = new OrbitControls(camera, renderer.domElement);
-
-controls.minPolarAngle = Math.PI / 2.9;
-controls.maxPolarAngle = Math.PI / 2;
-controls.minAzimuthAngle = Math.PI / 5;
-controls.maxAzimuthAngle = Math.PI / 1.5;
 // controls.minDistance = 3.5;
-controls.maxDistance = 10;
+// controls.maxDistance = 10;
 
 controls.enableDamping = true;
 controls.dampingFactor = 0.03;
 controls.update();
-controls.target.set(3.94312259152541, 3.833115424908893, -4.81930484957838);
+
+const azimuthLimit = Math.PI / 15;  // Pan (klein = viel bewegung, groß = wenig bewegung)
+const polarLimit   = Math.PI / 30;  // Tilt (klein = viel bewegung, groß = wenig bewegung)
+
+const minZoomOffset = -0.5; // wie weit ran
+const maxZoomOffset =  0.5; // wie weit raus
+
+function clampOrbitAroundCurrentView() {
+  controls.update(); 
+
+  const polarCenter   = controls.getPolarAngle();
+  const azimuthCenter = controls.getAzimuthalAngle();
+  const distanceCenter = controls.getDistance();
+
+  controls.minPolarAngle = polarCenter - polarLimit;
+  controls.maxPolarAngle = polarCenter + polarLimit;
+
+  controls.minAzimuthAngle = azimuthCenter - azimuthLimit;
+  controls.maxAzimuthAngle = azimuthCenter + azimuthLimit;
+
+  controls.minDistance = Math.max(0.1, distanceCenter + minZoomOffset);
+  controls.maxDistance = distanceCenter + maxZoomOffset;
+
+  controls.update();
+}
+
+camera.position.set(7.457997013443906, 4.2664251408437535, -3.9566580964541194);
+
+controls.target.set(5.3, 4.05, -4.45);
+
+clampOrbitAroundCurrentView();
 
 // Event Listeners
 window.addEventListener("resize", () => {
@@ -384,7 +413,6 @@ const render = () => {
     controls.update();
 
     // console.log(camera.position);
-    // console.log("00000000000");
     // console.log(controls.target);
 
     // Raycaster
