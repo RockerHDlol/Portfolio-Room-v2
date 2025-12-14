@@ -12,6 +12,9 @@ const sizes = {
     height: window.innerHeight,
 };
 
+let suppressHoverUntil = 0;
+let hoverArmed = true;
+
 const modals = {
     workPC: document.querySelector(".modal.workPC"),
     workCamera: document.querySelector(".modal.workCamera"),
@@ -22,8 +25,8 @@ const modals = {
 
 const INSTAGRAM_POSTS = {
     workPC: ["DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V"],
-    workCamera: ["DRmC24WiKDg"],
-    workEvent: ["DRjiuM0iLFj", "DRPzD6oCLFZ"],
+    workCamera: ["DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V"],
+    workEvent: ["DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V"],
 };
 
 const headerDiv = document.getElementById("Header");
@@ -94,7 +97,15 @@ let isModalOpen = false;
 const showModal = (modal, modalKey = null) => {
     modal.style.display = "block";
     isModalOpen = true;
-    controls.enabled = true;
+    controls.enabled = false;
+
+    // ✅ hard lock
+    controls.enableRotate = false;
+    controls.enableZoom = false;
+    controls.enablePan = false;
+
+    // ✅ stop inertial movement
+    controls.enableDamping = false;
 
     if (currentHoveredObject) {
         playHoverAnimation(currentHoveredObject, false);
@@ -119,6 +130,14 @@ const showModal = (modal, modalKey = null) => {
 };
 
 const hideModal = (modal) => {
+    suppressHoverUntil = performance.now() + 800;
+  hoverArmed = false;
+  currentIntersects = [];
+  if (currentHoveredObject) {
+    playHoverAnimation(currentHoveredObject, false);
+    currentHoveredObject = null;
+  }
+  document.body.style.cursor = "default";
     isModalOpen = false;
 
     gsap.to(modal, {
@@ -126,8 +145,22 @@ const hideModal = (modal) => {
         duration: 0.5,
         onComplete: () => {
             modal.style.display = "none";
+            controls.enableRotate = true;
+            controls.enableZoom = true;
+            controls.enablePan = true;
+            controls.enableDamping = true;
+
             controls.enabled = true;
             flyToView("home");
+
+            suppressHoverUntil = performance.now() + 300; // 300ms kein Hover
+            hoverArmed = false;
+            currentIntersects = [];
+            if (currentHoveredObject) {
+              playHoverAnimation(currentHoveredObject, false);
+              currentHoveredObject = null;
+            }
+            document.body.style.cursor = "default";
         },
     });
 };
@@ -179,6 +212,7 @@ window.addEventListener("mousemove", (e) => {
     touchHappened = false;
     pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
     pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    if (performance.now() >= suppressHoverUntil) hoverArmed = true;
 });
 
 window.addEventListener(
@@ -218,17 +252,13 @@ function handleRaycasterInteraction() {
         });
 
         if (object.name.includes("workPC")) {
-            flyToView("workPC");
-            showModal(modals.workPC, "workPC");
+            flyToView("workPC", { onComplete: () => showModal(modals.workPC, "workPC") });
         } else if (object.name.includes("workCamera")) {
-            flyToView("workCamera");
-            showModal(modals.workCamera, "workCamera");
+            flyToView("workCamera", { onComplete: () => showModal(modals.workCamera, "workCamera") });
         } else if (object.name.includes("workEvent")) {
-            flyToView("workEvent");
-            showModal(modals.workEvent, "workEvent");
+            flyToView("workEvent", { onComplete: () => showModal(modals.workEvent, "workEvent") });
         } else if (object.name.includes("aboutMe")) {
-            flyToView("aboutMe");
-            showModal(modals.aboutMe);
+            flyToView("aboutMe", { onComplete: () => showModal(modals.aboutMe) });
         } else if (object.name.includes("contact")) {
             showModal(modals.contact);
         }
@@ -393,16 +423,16 @@ const VIEWS = {
   home: HOME_VIEW,
 
   workPC: {
-    position: new THREE.Vector3(1, 1, 1),
-    target:   new THREE.Vector3(5.3, 4.05, -4.45),
+    position: new THREE.Vector3(6.011918667226149, 4.165424262115528, -4.151384665960448),
+    target:   new THREE.Vector3(5.4, 4.15, -4.18),
   },
   workCamera: {
-    position: new THREE.Vector3(8.2, 4.0, -2.6),
-    target:   new THREE.Vector3(7.6, 3.7, -3.4),
+    position: new THREE.Vector3(5.889881184473396, 3.989059500010512, -5.3108671519258435),
+    target:   new THREE.Vector3(5.8, 3.99, -5.31),
   },
   workEvent: {
-    position: new THREE.Vector3(5.8, 4.3, -5.2),
-    target:   new THREE.Vector3(4.9, 4.0, -5.0),
+    position: new THREE.Vector3(5.711951377719833, 4.078826981178438, -3.643985967008238),
+    target:   new THREE.Vector3(5.24, 4.0, -3.6),
   },
   aboutMe: {
     position: new THREE.Vector3(7.1, 4.7, -4.8),
@@ -412,14 +442,14 @@ const VIEWS = {
 
 let isCameraMoving = false;
 
-function flyToView(viewKey, { duration = 1.0, ease = "power2.out" } = {}) {
+function flyToView(viewKey, { duration = 0.7, ease = "power2.out", onComplete } = {}) {
   const view = VIEWS[viewKey];
   if (!view) return;
 
   isCameraMoving = true;
   controls.enabled = false;
 
-  disableOrbitLimits(); // 🚨 HIER
+  disableOrbitLimits();
 
   gsap.killTweensOf(camera.position);
   gsap.killTweensOf(controls.target);
@@ -429,29 +459,18 @@ function flyToView(viewKey, { duration = 1.0, ease = "power2.out" } = {}) {
     onUpdate: () => controls.update(),
     onComplete: () => {
       controls.update();
-
       gsap.delayedCall(0.05, enableOrbitLimitsAroundCurrentView);
 
       controls.enabled = true;
       isCameraMoving = false;
+
+      if (typeof onComplete === "function") onComplete(); // ✅ neu
     }
   });
 
-  tl.to(camera.position, {
-    x: view.position.x,
-    y: view.position.y,
-    z: view.position.z
-  }, 0);
-
-  tl.to(controls.target, {
-    x: view.target.x,
-    y: view.target.y,
-    z: view.target.z
-  }, 0);
+  tl.to(camera.position, { x: view.position.x, y: view.position.y, z: view.position.z }, 0);
+  tl.to(controls.target, { x: view.target.x, y: view.target.y, z: view.target.z }, 0);
 }
-
-
-
 
 // Event Listeners
 window.addEventListener("resize", () => {
@@ -502,50 +521,44 @@ function playHoverAnimation(object, isHovering) {
 }
 
 const render = () => {
-    controls.update();
+  controls.update();
 
-    // console.log(camera.position);
-    // console.log(controls.target);
-
-    // Raycaster
-    if (!isModalOpen) {
-        raycaster.setFromCamera(pointer, camera);
-
-        currentIntersects = raycaster.intersectObjects(raycasterObjects);
-
-        for (let i = 0; i < currentIntersects.length; i++) {}
-
-        if (currentIntersects.length > 0) {
-            const currentIntersectObject = currentIntersects[0].object;
-
-            if (currentIntersectObject.name.includes("Hover")) {
-                if (currentIntersectObject !== currentHoveredObject) {
-                    if (currentHoveredObject) {
-                        playHoverAnimation(currentHoveredObject, false);
-                    }
-
-                    playHoverAnimation(currentIntersectObject, true);
-                    currentHoveredObject = currentIntersectObject;
-                }
-            }
-
-            if (currentIntersectObject.name.includes("Pointer")) {
-                document.body.style.cursor = "pointer";
-            } else {
-                document.body.style.cursor = "default";
-            }
-        } else {
-            if (currentHoveredObject) {
-                playHoverAnimation(currentHoveredObject, false);
-                currentHoveredObject = null;
-            }
-            document.body.style.cursor = "default";
-        }
+  // Raycaster / Hover
+  if (isModalOpen || isCameraMoving || !hoverArmed || performance.now() < suppressHoverUntil) {
+    // Hover sicher aus
+    if (currentHoveredObject) {
+      playHoverAnimation(currentHoveredObject, false);
+      currentHoveredObject = null;
     }
+    document.body.style.cursor = "default";
+  } else {
+    raycaster.setFromCamera(pointer, camera);
+    currentIntersects = raycaster.intersectObjects(raycasterObjects);
 
-    renderer.render(scene, camera);
+    if (currentIntersects.length > 0) {
+      const obj = currentIntersects[0].object;
 
-    window.requestAnimationFrame(render);
+      if (obj.name.includes("Hover")) {
+        if (obj !== currentHoveredObject) {
+          if (currentHoveredObject) playHoverAnimation(currentHoveredObject, false);
+          playHoverAnimation(obj, true);
+          currentHoveredObject = obj;
+        }
+      }
+
+      document.body.style.cursor = obj.name.includes("Pointer") ? "pointer" : "default";
+    } else {
+      if (currentHoveredObject) {
+        playHoverAnimation(currentHoveredObject, false);
+        currentHoveredObject = null;
+      }
+      document.body.style.cursor = "default";
+    }
+  }
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(render);
 };
 
 render();
+
