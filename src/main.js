@@ -94,7 +94,7 @@ let isModalOpen = false;
 const showModal = (modal, modalKey = null) => {
     modal.style.display = "block";
     isModalOpen = true;
-    controls.enabled = false;
+    controls.enabled = true;
 
     if (currentHoveredObject) {
         playHoverAnimation(currentHoveredObject, false);
@@ -127,6 +127,7 @@ const hideModal = (modal) => {
         onComplete: () => {
             modal.style.display = "none";
             controls.enabled = true;
+            flyToView("home");
         },
     });
 };
@@ -202,6 +203,7 @@ window.addEventListener(
 );
 
 function handleRaycasterInteraction() {
+    if (isModalOpen || isCameraMoving) return;
     if (currentIntersects.length > 0) {
         const object = currentIntersects[0].object;
 
@@ -216,12 +218,16 @@ function handleRaycasterInteraction() {
         });
 
         if (object.name.includes("workPC")) {
+            flyToView("workPC");
             showModal(modals.workPC, "workPC");
         } else if (object.name.includes("workCamera")) {
+            flyToView("workCamera");
             showModal(modals.workCamera, "workCamera");
         } else if (object.name.includes("workEvent")) {
+            flyToView("workEvent");
             showModal(modals.workEvent, "workEvent");
         } else if (object.name.includes("aboutMe")) {
+            flyToView("aboutMe");
             showModal(modals.aboutMe);
         } else if (object.name.includes("contact")) {
             showModal(modals.contact);
@@ -359,7 +365,93 @@ camera.position.set(7.457997013443906, 4.2664251408437535, -3.9566580964541194);
 
 controls.target.set(5.3, 4.05, -4.45);
 
-clampOrbitAroundCurrentView();
+controls.update();
+
+enableOrbitLimitsAroundCurrentView();
+
+function enableOrbitLimitsAroundCurrentView() {
+  clampOrbitAroundCurrentView();
+}
+
+function disableOrbitLimits() {
+  controls.minPolarAngle = 0;
+  controls.maxPolarAngle = Math.PI;
+
+  controls.minAzimuthAngle = -Infinity;
+  controls.maxAzimuthAngle = Infinity;
+
+  controls.minDistance = 0;
+  controls.maxDistance = Infinity;
+}
+
+const HOME_VIEW = {
+  position: camera.position.clone(),
+  target: controls.target.clone()
+};
+
+const VIEWS = {
+  home: HOME_VIEW,
+
+  workPC: {
+    position: new THREE.Vector3(1, 1, 1),
+    target:   new THREE.Vector3(5.3, 4.05, -4.45),
+  },
+  workCamera: {
+    position: new THREE.Vector3(8.2, 4.0, -2.6),
+    target:   new THREE.Vector3(7.6, 3.7, -3.4),
+  },
+  workEvent: {
+    position: new THREE.Vector3(5.8, 4.3, -5.2),
+    target:   new THREE.Vector3(4.9, 4.0, -5.0),
+  },
+  aboutMe: {
+    position: new THREE.Vector3(7.1, 4.7, -4.8),
+    target:   new THREE.Vector3(6.4, 4.4, -5.2),
+  }
+};
+
+let isCameraMoving = false;
+
+function flyToView(viewKey, { duration = 1.0, ease = "power2.out" } = {}) {
+  const view = VIEWS[viewKey];
+  if (!view) return;
+
+  isCameraMoving = true;
+  controls.enabled = false;
+
+  disableOrbitLimits(); // 🚨 HIER
+
+  gsap.killTweensOf(camera.position);
+  gsap.killTweensOf(controls.target);
+
+  const tl = gsap.timeline({
+    defaults: { duration, ease },
+    onUpdate: () => controls.update(),
+    onComplete: () => {
+      controls.update();
+
+      gsap.delayedCall(0.05, enableOrbitLimitsAroundCurrentView);
+
+      controls.enabled = true;
+      isCameraMoving = false;
+    }
+  });
+
+  tl.to(camera.position, {
+    x: view.position.x,
+    y: view.position.y,
+    z: view.position.z
+  }, 0);
+
+  tl.to(controls.target, {
+    x: view.target.x,
+    y: view.target.y,
+    z: view.target.z
+  }, 0);
+}
+
+
+
 
 // Event Listeners
 window.addEventListener("resize", () => {
