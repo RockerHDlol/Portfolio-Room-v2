@@ -51,13 +51,13 @@
   max-width: 1050px; // Erhöhen wir die max-width großzügig, um Platz zu garantieren.
   
   transform: translate(-50%, -50%);
-  background-color: #f9f9f9;
+  background-color: rgba(249, 249, 249, 0);
   padding: 40px 30px;
   border-radius: 16px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
   display: none;
   z-index: 9999;
-  
+
+
   // *** NEU: Scrollbar für das gesamte Modal aktivieren ***
   max-height: 90vh; // Modale Höhe begrenzen
   overflow-y: auto;  // Scrollbar hier aktivieren
