@@ -24,12 +24,10 @@ const modals = {
 };
 
 let POSTS_BY_CATEGORY = { workPC: [], workCamera: [], workEvent: [] };
-let postsLoaded = false;
+
 
 async function loadPostsFromSheet() {
-  if (postsLoaded) return;
-
-  const r = await fetch("/api/posts");
+  const r = await fetch(`/api/posts?ts=${Date.now()}`); // ts = kein Browsercache
   const data = await r.json();
 
   POSTS_BY_CATEGORY = { workPC: [], workCamera: [], workEvent: [] };
@@ -38,9 +36,8 @@ async function loadPostsFromSheet() {
     if (!item?.category || !item?.postId) continue;
     (POSTS_BY_CATEGORY[item.category] ??= []).push(item);
   }
-
-  postsLoaded = true;
 }
+
 
 const headerDiv = document.getElementById("Header");
 if (headerDiv) {
@@ -115,6 +112,8 @@ document.querySelectorAll(".modal-exit-button").forEach((button) => {
 });
 
 let isModalOpen = false;
+
+loadPostsFromSheet();
 
 const showModal = async (modal, modalKey = null) => {
     modal.style.display = "block";
