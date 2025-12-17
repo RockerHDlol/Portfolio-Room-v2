@@ -2,7 +2,11 @@
 @use "./styles/reset.scss";
 @use "./styles/variables.scss" as vars;
 
-*{
+// ========================================
+// Global Styles
+// ========================================
+
+* {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -11,14 +15,16 @@
 
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  --modal-fade: 40px;
 }
 
-// Experience
+// ========================================
+// Experience Canvas
+// ========================================
 
 #experience {
   position: fixed;
@@ -28,133 +34,161 @@
   left: 0;
   overflow: hidden;
 
-  #experience-canvas{
+  #experience-canvas {
     height: 100%;
     width: 100%;
   }
 }
 
-
-
-// ... (Deine Imports und allgemeinen Styles bleiben gleich)
-
-
+// ========================================
+// Modal
+// ========================================
 
 .modal {
   position: fixed;
   top: 50%;
   left: 50%;
-  width: 90%;
-  
-  // *** NEU: Max-Breite erhöhen oder Scrollbar-Breite einplanen ***
-  // 3 Posts (310*3) + 2 Gaps (30*2) + Scrollbar (ca. 17px) = ~1007px
-  max-width: 1050px; // Erhöhen wir die max-width großzügig, um Platz zu garantieren.
-  
   transform: translate(-50%, -50%);
+  width: min(1050px, calc(100vw - 24px));
+  max-height: min(90vh, calc(100dvh - 24px));
+  padding: clamp(16px, 3vw, 40px) clamp(14px, 2.5vw, 30px);
+  
   background-color: rgba(249, 249, 249, 0);
-  padding: 40px 30px;
   border-radius: 16px;
   display: none;
   z-index: 9999;
+  overflow-y: auto;
 
-
-  // *** NEU: Scrollbar für das gesamte Modal aktivieren ***
-  max-height: 90vh; // Modale Höhe begrenzen
-  overflow-y: auto;  // Scrollbar hier aktivieren
-
+  // Scrollbar verstecken
   &::-webkit-scrollbar {
-    display: none; // Versteckt die Scrollbar-Leiste
-    width: 0; // Entfernt den Platz, den die Scrollbar einnimmt
-    height: 0; 
+    display: none;
+    width: 0;
+    height: 0;
   }
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 
-  // 2. Für Internet Explorer und Edge (der ältere Weg)
-  -ms-overflow-style: none; /* IE and Edge */
-  
-  // 3. Für Firefox
-  scrollbar-width: none;  /* Firefox */
+  // Fade-Effekt am oberen und unteren Rand
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--modal-fade),
+    #000 calc(100% - var(--modal-fade)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--modal-fade),
+    #000 calc(100% - var(--modal-fade)),
+    transparent 100%
+  );
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
 }
 
 .modal-content {
-  // *** KORREKTUR: Scrollbar hier DEAKTIVIEREN, sonst doppelte Scrollbars! ***
-  overflow-y: visible; // oder hidden, aber visible ist besser für Flexbox
-  max-height: none; // Die Höhe wird jetzt vom .modal gesteuert
+  overflow-y: visible;
+  max-height: none;
 }
+
+// ========================================
+// Instagram Grid
+// ========================================
 
 .insta-grid {
   display: flex !important;
   flex-wrap: wrap !important;
+  justify-content: center !important;
   gap: 24px !important;
 }
 
 .insta-grid > .iframe-wrapper {
-  flex: 0 0 calc(33.333% - 16px) !important;
-  max-width: calc(33.333% - 16px) !important;
-}
-
-/* Card */
-.insta-grid > .iframe-wrapper {
+  flex: 0 0 260px !important;
+  max-width: 260px !important;
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 4 / 5 !important;
+  
   position: relative !important;
   overflow: hidden !important;
   border-radius: 12px !important;
-  background: #000 !important; /* wichtig gegen weiße Flächen */
+  background: #000 !important;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+  &:hover {
+    transform: scale(1.05);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+    z-index: 50;
+  }
 }
 
-.insta-grid > .iframe-wrapper:hover {
-  transform: scale(1.05);
-  z-index: 50; /* über Nachbarn */
-}
+// ========================================
+// Instagram Embed
+// ========================================
 
-/* Embed: alles “weißes” killen */
 .insta-grid .insta-embed {
+  position: absolute !important;
+  inset: 0 !important;
   background: transparent !important;
+
+  iframe {
+    position: absolute !important;
+    inset: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    border: 0 !important;
+    background: transparent !important;
+    transform: translateY(-12%) scale(1.12) !important;
+    transform-origin: top center !important;
+  }
 }
 
-.insta-grid .insta-embed iframe {
-  display: block !important;
-  width: 100% !important;
-  height: 420px !important;
-  border: 0 !important;
-  background: transparent !important;
-}
-
-/* manche Browser geben iframes komische outlines/shadows */
 .insta-grid .insta-embed,
 .insta-grid .insta-embed * {
   box-shadow: none !important;
   outline: none !important;
 }
 
-/* Abdunkeln */
 .insta-grid > .iframe-wrapper:hover .insta-embed {
   filter: brightness(0.75);
 }
 
-/* Click-blocker: soll klicken blocken, aber Text nicht überdecken */
+// ========================================
+// Post Overlay & Meta
+// ========================================
+
 .insta-grid .iframe-cover {
   position: absolute !important;
   inset: 0 !important;
   z-index: 5 !important;
+  display: none;
 }
 
-/* Overlay: MUSS über iframe + cover liegen */
 .insta-grid .post-meta {
   position: absolute !important;
   left: 0 !important;
   right: 0 !important;
   bottom: 0 !important;
   padding: 150px 16px !important;
-
-  z-index: 10 !important; /* höher als iframe-cover */
+  z-index: 10 !important;
+  
   color: #fff !important;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0)) !important;
+  pointer-events: none !important;
+  
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
 
-  background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.8),
-    rgba(0, 0, 0, 0)
-  ) !important;
-
-  pointer-events: none !important; /* damit cover weiter blockt */
+.insta-grid .iframe-wrapper:hover .post-meta {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .insta-grid .post-title {
@@ -180,67 +214,9 @@
   opacity: 0.7 !important;
 }
 
-/* Responsive */
-@media (max-width: 900px) {
-  .insta-grid > .iframe-wrapper {
-    flex: 0 0 calc(50% - 12px) !important;
-    max-width: calc(50% - 12px) !important;
-  }
-}
-
-@media (max-width: 520px) {
-  .insta-grid > .iframe-wrapper {
-    flex: 0 0 100% !important;
-    max-width: 100% !important;
-  }
-}
-
-.iframe-wrapper {
-  flex: 1 1 300px;
-  max-width: 290px;
-  height: 347px; // Beibehalten, um den sichtbaren Bereich festzulegen
-  
-
-  border-radius: 12px; // Rundung des Wrappers
-  overflow: hidden; // WICHTIG: Überschüssigen Inhalt (den Iframe-Kopf) verstecken
-  background: #ffffff;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  position: relative; // Für die absolute Positionierung des Iframes
-  
-    &:hover {
-    transform: translateY(-0px);
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-  }
-}
-
-.insta-embed {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.insta-embed iframe {
-  width: 290px;
-  height: 407px; // Iframe-Gesamthöhe
-  border: none;
-  
-  // *** WICHTIGE ANPASSUNG HIER ***
-  // Wir verschieben den Iframe nach oben, aber lassen oben einen kleinen Rand (z.B. 2px),
-  // damit die border-radius vom iframe selbst sichtbar wird.
-  // Dann wenden wir die border-radius auf das iframe an.
-  transform: translateY(-60px); // Beispiel: 60px minus 2px für die Rundung = -58px
-  border-radius: 12px; // Rundung direkt auf das Iframe anwenden
-  position: absolute;
-}
-
-.iframe-cover {
-  display: none;
-}
-
-.iframe-wrapper { position: relative; }
+// ========================================
+// Post Tooltip
+// ========================================
 
 .post-tooltip {
   position: absolute;
@@ -251,107 +227,67 @@
   border-radius: 10px;
   font-size: 12px;
   max-width: 280px;
+  
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease;
-  background: rgba(0,0,0,0.75);
-  color: #fff;
 }
 
 .iframe-wrapper:hover .post-tooltip {
   opacity: 1;
 }
 
-.insta-grid .post-meta {
-  opacity: 0;
-  transform: translateY(10px);
-  transition: opacity 0.25s ease, transform 0.25s ease;
-
-  /* bleibt im Layout, aber unsichtbar */
-  pointer-events: none;
-}
-
-/* bei Hover einblenden */
-.insta-grid .iframe-wrapper:hover .post-meta {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.modal {
-  position: fixed; /* hast du sehr wahrscheinlich schon */
-}
+// ========================================
+// Modal Close Button
+// ========================================
 
 .global-modal-close {
   position: fixed;
-  right: 370px;
-  bottom: 30px;
+  left: 16px;
+  top: 16px;
   z-index: 999999;
-
+  
   width: 56px;
   height: 56px;
   padding: 0;
   border: 0;
   background: transparent;
   cursor: pointer;
-
+  
   display: grid;
   place-items: center;
-
   transition: transform 0.15s ease;
+
+  &:hover {
+    transform: scale(1.12);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+  }
 }
 
-.global-modal-close:hover {
-  transform: scale(1.12);
+// ========================================
+// Responsive Design
+// ========================================
+
+@media (max-width: 520px) {
+  .insta-grid > .iframe-wrapper {
+    max-width: 520px !important;
+  }
 }
 
-.global-modal-close:active {
-  transform: scale(0.98);
-}
-
-.global-modal-close img {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: contain;
-}
-
-:root {
-  --modal-fade: 40px; /* HIER stellst du die Stärke ein */
-}
-
-.modal {
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    #000 var(--modal-fade),
-    #000 calc(100% - var(--modal-fade)),
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    #000 var(--modal-fade),
-    #000 calc(100% - var(--modal-fade)),
-    transparent 100%
-  );
-
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
-}
-
-/* === 3 Spalten + letzte Reihe automatisch zentriert === */
-
-.insta-grid {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  gap: 24px !important;
-  justify-content: center !important; /* <- das zentriert die letzte Reihe */
-}
-
-/* 3 Spalten korrekt inkl. gap gerechnet */
-.insta-grid > .iframe-wrapper {
-  flex: 0 0 calc((100% - (2 * 24px)) / 3) !important;
-  max-width: calc((100% - (2 * 24px)) / 3) !important;
+@media (hover: none) {
+  .insta-grid > .iframe-wrapper:hover {
+    transform: none !important;
+  }
 }
