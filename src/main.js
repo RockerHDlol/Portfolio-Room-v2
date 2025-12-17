@@ -23,48 +23,70 @@ const modals = {
     contact: document.querySelector(".modal.contact"),
 };
 
-const INSTAGRAM_POSTS = {
-    workPC: ["DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V"],
-    workCamera: ["DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V"],
-    workEvent: ["DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V","DRnOEjME21V"],
-};
+let POSTS_BY_CATEGORY = { workPC: [], workCamera: [], workEvent: [] };
+let postsLoaded = false;
+
+async function loadPostsFromSheet() {
+  if (postsLoaded) return;
+
+  const r = await fetch("/api/posts");
+  const data = await r.json();
+
+  POSTS_BY_CATEGORY = { workPC: [], workCamera: [], workEvent: [] };
+
+  for (const item of data.items || []) {
+    if (!item?.category || !item?.postId) continue;
+    (POSTS_BY_CATEGORY[item.category] ??= []).push(item);
+  }
+
+  postsLoaded = true;
+}
 
 const headerDiv = document.getElementById("Header");
 if (headerDiv) {
     headerDiv.remove();
 }
+
+function escapeHtml(str = "") {
+  return String(str).replace(/[&<>"']/g, (m) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
+  }[m]));
+}
+
 function renderInstagramEmbeds(modalElement, modalKey) {
-    const contentEl = modalElement.querySelector(".modal-content");
-    if (!contentEl) return;
+  const contentEl = modalElement.querySelector(".modal-content");
+  if (!contentEl) return;
 
-    const ids = INSTAGRAM_POSTS[modalKey] || [];
+  const items = POSTS_BY_CATEGORY[modalKey] || [];
 
-    const iframesHtml = ids
-        .map(
-            (id) => `
-            <div class="iframe-wrapper">
-                <div class="insta-embed">
-                    <iframe
-                        src="https://www.instagram.com/p/${id}/embed/" // 'captioned/' verwenden
-                        width="320" // Iframe-Breite anpassen
-                        height="400" // Iframe-Höhe erhöhen, um Platz für das Verschieben zu schaffen
-                        frameborder="0"
-                        scrolling="no"
-                        allowtransparency="true"
-                        id="myIFrame">
-                    </iframe>
-                </div>
-                <div class="iframe-cover"></div>
-            </div>
-        `
-        )
-        .join("");
+  const iframesHtml = items.map(({ postId, hoverText }) => `
+    <div class="iframe-wrapper">
+      <div class="insta-embed">
+        <iframe
+          src="https://www.instagram.com/p/${postId}/embed/"
+          width="320"
+          height="400"
+          frameborder="0"
+          scrolling="no"
+          allowtransparency="true">
+        </iframe>
+      </div>
 
-    contentEl.innerHTML = `
-        <div class="insta-grid">
-            ${iframesHtml}
-        </div>
-    `;
+      <div class="iframe-cover"></div>
+
+      <div class="post-tooltip">${escapeHtml(hoverText || "")}</div>
+    </div>
+  `).join("");
+
+  contentEl.innerHTML = `
+    <div class="insta-grid">
+      ${iframesHtml}
+    </div>
+  `;
 }
 
 let touchHappened = false;
@@ -94,7 +116,7 @@ document.querySelectorAll(".modal-exit-button").forEach((button) => {
 
 let isModalOpen = false;
 
-const showModal = (modal, modalKey = null) => {
+const showModal = async (modal, modalKey = null) => {
     modal.style.display = "block";
     isModalOpen = true;
     controls.enabled = false;
@@ -116,6 +138,7 @@ const showModal = (modal, modalKey = null) => {
 
     // 🔁 fill Instagram posts for the work modals
     if (modalKey && ["workPC", "workCamera", "workEvent"].includes(modalKey)) {
+        await loadPostsFromSheet();
         renderInstagramEmbeds(modal, modalKey);
     }
 

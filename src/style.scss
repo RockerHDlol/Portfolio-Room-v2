@@ -136,3 +136,25 @@
 .iframe-cover {
   display: none;
 }
+
+.iframe-wrapper { position: relative; }
+
+.post-tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  max-width: 280px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  background: rgba(0,0,0,0.75);
+  color: #fff;
+}
+
+.iframe-wrapper:hover .post-tooltip {
+  opacity: 1;
+}
