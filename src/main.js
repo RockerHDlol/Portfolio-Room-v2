@@ -23,6 +23,21 @@ const modals = {
     contact: document.querySelector(".modal.contact"),
 };
 
+// Global Close Button (lebt in <body>, nicht im Modal)
+const globalCloseBtn = document.createElement("button");
+globalCloseBtn.className = "global-modal-close";
+globalCloseBtn.setAttribute("aria-label", "Close modal");
+globalCloseBtn.innerHTML = `<img src="/images/Close.png" alt="" />`;
+document.body.appendChild(globalCloseBtn);
+
+globalCloseBtn.style.display = "none";
+
+globalCloseBtn.addEventListener("click", () => {
+  const openModal = document.querySelector(".modal[style*='display: block']");
+  if (openModal) hideModal(openModal);
+});
+
+
 let POSTS_BY_CATEGORY = { workPC: [], workCamera: [], workEvent: [] };
 
 
@@ -34,8 +49,16 @@ async function loadPostsFromSheet() {
 
   for (const item of data.items || []) {
     if (!item?.category || !item?.postId) continue;
-    (POSTS_BY_CATEGORY[item.category] ??= []).push(item);
-  }
+
+    (POSTS_BY_CATEGORY[item.category] ??= []).push({
+      postId: item.postId,
+
+      // robust gegen Name vs name usw.
+      name: item.name ?? item.Name ?? "",
+      subText: item.subText ?? item.SubText ?? "",
+      date: item.date ?? item.Date ?? "",
+  });
+}
 }
 
 
@@ -58,26 +81,28 @@ function renderInstagramEmbeds(modalElement, modalKey) {
   const contentEl = modalElement.querySelector(".modal-content");
   if (!contentEl) return;
 
-  const items = POSTS_BY_CATEGORY[modalKey] || [];
+  const items = [...(POSTS_BY_CATEGORY[modalKey] || [])].reverse();
 
-  const iframesHtml = items.map(({ postId, hoverText }) => `
-    <div class="iframe-wrapper">
-      <div class="insta-embed">
-        <iframe
-          src="https://www.instagram.com/p/${postId}/embed/"
-          width="320"
-          height="400"
-          frameborder="0"
-          scrolling="no"
-          allowtransparency="true">
-        </iframe>
-      </div>
-
-      <div class="iframe-cover"></div>
-
-      <div class="post-tooltip">${escapeHtml(hoverText || "")}</div>
+  const iframesHtml = items.map(({ postId, name, subText, date }) => `
+  <div class="iframe-wrapper">
+    <div class="insta-embed">
+      <iframe
+        src="https://www.instagram.com/p/${postId}/embed/"
+        frameborder="0"
+        scrolling="no"
+        allowtransparency="true">
+      </iframe>
     </div>
-  `).join("");
+
+    <div class="iframe-cover"></div>
+
+    <div class="post-meta">
+      <div class="post-title">${escapeHtml(name || "")}</div>
+      <div class="post-sub">${escapeHtml(subText || "")}</div>
+      <div class="post-date">${escapeHtml(date || "")}</div>
+    </div>
+  </div>
+`).join("");
 
   contentEl.innerHTML = `
     <div class="insta-grid">
@@ -117,6 +142,7 @@ loadPostsFromSheet().catch(console.error);
 
 const showModal = async (modal, modalKey = null) => {
     modal.style.display = "block";
+    globalCloseBtn.style.display = "grid";
     isModalOpen = true;
     controls.enabled = false;
 
@@ -151,6 +177,7 @@ const showModal = async (modal, modalKey = null) => {
 };
 
 const hideModal = (modal) => {
+    globalCloseBtn.style.display = "none";
     suppressHoverUntil = performance.now() + 800;
   hoverArmed = false;
   currentIntersects = [];
@@ -165,6 +192,7 @@ const hideModal = (modal) => {
         opacity: 0,
         duration: 0.5,
         onComplete: () => {
+            globalCloseBtn.style.display = "none";
             modal.style.display = "none";
             controls.enableRotate = true;
             controls.enableZoom = true;

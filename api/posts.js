@@ -24,8 +24,6 @@ export default async function handler(req, res) {
     const [header, ...data] = rows;
     const idx = Object.fromEntries(header.map((h, i) => [h.trim(), i]));
 
-    // Your column names:
-    // "Spalte 1" (ignore), "Category", "PostID", "Name", "SubText", "Date", "Show"
     const items = [];
 
     for (const row of data) {
@@ -37,7 +35,6 @@ export default async function handler(req, res) {
       if (!postId) continue;
 
       const categoryRaw = row[idx["Category"]] ?? "";
-      // category can be: "workPC, workCamera, workEvent"
       const categories = String(categoryRaw)
         .split(",")
         .map((c) => c.trim())
@@ -47,13 +44,13 @@ export default async function handler(req, res) {
       const subText = row[idx["SubText"]] ?? "";
       const date = row[idx["Date"]] ?? "";
 
-      const hoverText = [name, subText, date].filter(Boolean).join(" • ");
-
       for (const category of categories) {
         items.push({
-          category,   // e.g. "workPC"
-          postId,     // e.g. "DR9q88wgQLb"
-          hoverText,  // e.g. "Test 1 • small 1 • 01.01.2026"
+          category,   // "workPC"
+          postId,     // Instagram ID
+          name,       // Titel
+          subText,    // Untertitel
+          date,       // Datum
         });
       }
     }
