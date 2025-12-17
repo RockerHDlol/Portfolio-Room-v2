@@ -49,7 +49,7 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(1050px, calc(100vw - 24px));
+  width: min(100vw, calc(100vw - 24px));  // min(entweder das, calc(100%viewer window - oder das)) der kleiner wert
   max-height: min(90vh, calc(100dvh - 24px));
   padding: clamp(16px, 3vw, 40px) clamp(14px, 2.5vw, 30px);
   
@@ -102,12 +102,14 @@
   display: flex !important;
   flex-wrap: wrap !important;
   justify-content: center !important;
-  gap: 24px !important;
+  gap: max(calc(1vw), calc(15px)) !important;
 }
 
 .insta-grid > .iframe-wrapper {
-  flex: 0 0 260px !important;
-  max-width: 260px !important;
+  // flex: 0 0 min(calc(8vw + 240px), calc(100vw - 12px)) !important; // flex: größer werden, kleiner werden, Startbreite
+  // max-width: min(calc(8vw + 240px), calc(100vw - 12px)) !important;
+  flex: 0 0 max(calc(20vw), calc(230px + 5vw)) !important; // flex: größer werden, kleiner werden, Startbreite
+  max-width: max(calc(20vw), calc(230px + 5vw)) !important;
   width: 100% !important;
   height: auto !important;
   aspect-ratio: 4 / 5 !important;
@@ -193,7 +195,7 @@
 
 .insta-grid .post-title {
   font-family: "Marimpa", sans-serif;
-  font-size: 4rem !important;
+  font-size: max(calc(4vw), calc(70px + 0vw)) !important;
   font-weight: 600 !important;
   line-height: 1.2 !important;
 }
