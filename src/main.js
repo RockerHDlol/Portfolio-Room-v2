@@ -113,7 +113,7 @@ document.querySelectorAll(".modal-exit-button").forEach((button) => {
 
 let isModalOpen = false;
 
-loadPostsFromSheet();
+loadPostsFromSheet().catch(console.error);
 
 const showModal = async (modal, modalKey = null) => {
     modal.style.display = "block";
@@ -137,7 +137,6 @@ const showModal = async (modal, modalKey = null) => {
 
     // 🔁 fill Instagram posts for the work modals
     if (modalKey && ["workPC", "workCamera", "workEvent"].includes(modalKey)) {
-        await loadPostsFromSheet();
         renderInstagramEmbeds(modal, modalKey);
     }
 
