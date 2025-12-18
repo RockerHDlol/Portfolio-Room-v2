@@ -43,14 +43,18 @@ export default async function handler(req, res) {
       const name = row[idx["Name"]] ?? "";
       const subText = row[idx["SubText"]] ?? "";
       const date = row[idx["Date"]] ?? "";
+      
+      // ✅ Aspect Ratio aus Sheet laden (z.B. "4/5", "16/9", "1/1")
+      const aspectRatio = row[idx["AspectRatio"]] ?? "4/5";
 
       for (const category of categories) {
         items.push({
-          category,   // "workPC"
-          postId,     // Instagram ID
-          name,       // Titel
-          subText,    // Untertitel
-          date,       // Datum
+          category,     // "workPC"
+          postId,       // Instagram ID
+          name,         // Titel
+          subText,      // Untertitel
+          date,         // Datum
+          aspectRatio,  // ✅ Aspect Ratio
         });
       }
     }

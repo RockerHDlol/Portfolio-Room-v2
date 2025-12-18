@@ -1,7 +1,6 @@
 import * as THREE from "three";
 import "./style.scss";
 import { OrbitControls } from "./utils/OrbitControls.js";
-// import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import gsap from "gsap";
@@ -14,6 +13,9 @@ const sizes = {
 
 let suppressHoverUntil = 0;
 let hoverArmed = true;
+let masonryResizeHandler = null;
+
+let resizeTimeout = null; // ✅ FIX
 
 const modals = {
     workPC: document.querySelector(".modal.workPC"),
@@ -23,7 +25,6 @@ const modals = {
     contact: document.querySelector(".modal.contact"),
 };
 
-// Global Close Button (lebt in <body>, nicht im Modal)
 const globalCloseBtn = document.createElement("button");
 globalCloseBtn.className = "global-modal-close";
 globalCloseBtn.setAttribute("aria-label", "Close modal");
@@ -37,12 +38,10 @@ globalCloseBtn.addEventListener("click", () => {
   if (openModal) hideModal(openModal);
 });
 
-
 let POSTS_BY_CATEGORY = { workPC: [], workCamera: [], workEvent: [] };
 
-
 async function loadPostsFromSheet() {
-  const r = await fetch(`/api/posts?ts=${Date.now()}`); // ts = kein Browsercache
+  const r = await fetch(`/api/posts?ts=${Date.now()}`);
   const data = await r.json();
 
   POSTS_BY_CATEGORY = { workPC: [], workCamera: [], workEvent: [] };
@@ -52,15 +51,15 @@ async function loadPostsFromSheet() {
 
     (POSTS_BY_CATEGORY[item.category] ??= []).push({
       postId: item.postId,
-
-      // robust gegen Name vs name usw.
       name: item.name ?? item.Name ?? "",
       subText: item.subText ?? item.SubText ?? "",
       date: item.date ?? item.Date ?? "",
-  });
+      aspectRatio: item.aspectRatio ?? "4/5",
+    });
+  }
+  
+  console.log("Loaded posts:", POSTS_BY_CATEGORY);
 }
-}
-
 
 const headerDiv = document.getElementById("Header");
 if (headerDiv) {
@@ -79,37 +78,137 @@ function escapeHtml(str = "") {
 
 function renderInstagramEmbeds(modalElement, modalKey) {
   const contentEl = modalElement.querySelector(".modal-content");
-  if (!contentEl) return;
+  if (!contentEl) {
+    console.error("No .modal-content found in modal");
+    return;
+  }
+
+  if (masonryResizeHandler) {
+  window.removeEventListener("resize", masonryResizeHandler);
+  }
+
+  masonryResizeHandler = () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(layoutMasonry, 150);
+  };
+
+  window.addEventListener("resize", masonryResizeHandler);
 
   const items = [...(POSTS_BY_CATEGORY[modalKey] || [])].reverse();
+  console.log(`Rendering ${items.length} posts for ${modalKey}`);
 
-  const iframesHtml = items.map(({ postId, name, subText, date }) => `
-  <div class="iframe-wrapper">
-    <div class="insta-embed">
-      <iframe
-        src="https://www.instagram.com/p/${postId}/embed/"
-        frameborder="0"
-        scrolling="no"
-        allowtransparency="true">
-      </iframe>
-    </div>
+  if (items.length === 0) {
+    contentEl.innerHTML = '<p style="color: white; padding: 20px;">No posts found</p>';
+    return;
+  }
 
-    <div class="iframe-cover"></div>
+  // Container für Masonry erstellen
+  const container = document.createElement("div");
+  container.className = "insta-masonry";
+  contentEl.innerHTML = "";
+  contentEl.appendChild(container);
 
-    <div class="post-meta">
-      <div class="post-title">${escapeHtml(name || "")}</div>
-      <div class="post-sub">${escapeHtml(subText || "")}</div>
-      <div class="post-date">${escapeHtml(date || "")}</div>
-    </div>
-  </div>
-`).join("");
+  // Posts als Elemente erstellen
+  const postElements = items.map(({ postId, name, subText, date, aspectRatio }) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "iframe-wrapper";
+    
+    // AspectRatio normalisieren (Leerzeichen entfernen)
+    const cleanRatio = aspectRatio.replace(/\s+/g, "");
+    wrapper.style.aspectRatio = cleanRatio;
+    wrapper.dataset.aspectRatio = cleanRatio;
 
-  contentEl.innerHTML = `
-    <div class="insta-grid">
-      ${iframesHtml}
-    </div>
-  `;
-}
+    const parts = cleanRatio.split("/").map((s) => parseFloat(s.trim()));
+    const wR = parts[0] || 4;
+    const hR = parts[1] || 5;
+    const ar = hR / wR; // >1 = hoch, <1 = quer
+
+    const MIN_PAD = 1;
+    const MAX_PAD = 20;
+    
+    // lineare Skalierung
+    let metaPad = 4 + (ar - 0.6) * 12;
+      
+    // clamp
+    metaPad = Math.max(MIN_PAD, Math.min(MAX_PAD, metaPad));
+      
+    wrapper.style.setProperty("--meta-pad", `${metaPad}vw`);
+
+    wrapper.innerHTML = `
+      <div class="insta-embed">
+        <iframe
+          src="https://www.instagram.com/p/${postId}/embed/"
+          frameborder="0"
+          scrolling="no"
+          allowtransparency="true">
+        </iframe>
+      </div>
+      <div class="iframe-cover"></div>
+      <div class="post-meta">
+        <div class="post-title">${escapeHtml(name || "")}</div>
+        <div class="post-sub">${escapeHtml(subText || "")}</div>
+        <div class="post-date">${escapeHtml(date || "")}</div>
+      </div>
+    `;
+
+    return wrapper;
+  });
+
+  // Masonry-Algorithmus
+  function layoutMasonry() {
+    // Modal/Container muss sichtbar sein, sonst ist width 0
+    const containerWidth =
+      container.getBoundingClientRect().width || modalElement.getBoundingClientRect().width;
+
+    if (!containerWidth) {
+      console.warn("Container width is 0, waiting...");
+      requestAnimationFrame(layoutMasonry);
+      return;
+    }
+
+    // Spaltenanzahl soll gleich bleiben (Desktop 3 / Tablet 2 / Mobile 1)
+    const w = window.innerWidth;
+    const numCols = w <= 520 ? 1 : (w <= 980 ? 2 : 3);
+
+    const gap = 15;
+    const colWidth = (containerWidth - (numCols - 1) * gap) / numCols;
+
+    const columns = Array.from({ length: numCols }, () => []);
+    const columnHeights = Array(numCols).fill(0);
+
+    postElements.forEach((el) => {
+      const shortestColIndex = columnHeights.indexOf(Math.min(...columnHeights));
+      columns[shortestColIndex].push(el);
+
+      const ratioStr = el.dataset.aspectRatio || "4/5";
+      const parts = ratioStr.split("/").map((s) => parseFloat(s.trim()));
+      const wRatio = parts[0];
+      const hRatio = parts[1];
+      const ratio = wRatio && hRatio ? (hRatio / wRatio) : (5 / 4);
+
+      const elHeight = colWidth * ratio;
+      columnHeights[shortestColIndex] += elHeight + gap;
+    });
+
+    container.innerHTML = "";
+    columns.forEach((col) => {
+      const colDiv = document.createElement("div");
+      colDiv.className = "masonry-column";
+      col.forEach((el) => colDiv.appendChild(el));
+      container.appendChild(colDiv);
+    });
+  }
+
+  // Initial layout: erst im nächsten Frame (nachdem display:block greift)
+  requestAnimationFrame(() => {
+    layoutMasonry();
+    setTimeout(layoutMasonry, 300); // iframes/layout settle
+  });
+
+  
+resizeTimeout = setTimeout(layoutMasonry, 150);
+  };
+
 
 let touchHappened = false;
 document.querySelectorAll(".modal-exit-button").forEach((button) => {
@@ -141,17 +240,15 @@ let isModalOpen = false;
 loadPostsFromSheet().catch(console.error);
 
 const showModal = async (modal, modalKey = null) => {
+    console.log(`Opening modal: ${modalKey}`);
     modal.style.display = "block";
     globalCloseBtn.style.display = "grid";
     isModalOpen = true;
     controls.enabled = false;
 
-    // ✅ hard lock
     controls.enableRotate = false;
     controls.enableZoom = false;
     controls.enablePan = false;
-
-    // ✅ stop inertial movement
     controls.enableDamping = false;
 
     if (currentHoveredObject) {
@@ -161,7 +258,6 @@ const showModal = async (modal, modalKey = null) => {
     document.body.style.cursor = "default";
     currentIntersects = [];
 
-    // 🔁 fill Instagram posts for the work modals
     if (modalKey && ["workPC", "workCamera", "workEvent"].includes(modalKey)) {
         renderInstagramEmbeds(modal, modalKey);
     }
@@ -179,13 +275,13 @@ const showModal = async (modal, modalKey = null) => {
 const hideModal = (modal) => {
     globalCloseBtn.style.display = "none";
     suppressHoverUntil = performance.now() + 800;
-  hoverArmed = false;
-  currentIntersects = [];
-  if (currentHoveredObject) {
-    playHoverAnimation(currentHoveredObject, false);
-    currentHoveredObject = null;
-  }
-  document.body.style.cursor = "default";
+    hoverArmed = false;
+    currentIntersects = [];
+    if (currentHoveredObject) {
+        playHoverAnimation(currentHoveredObject, false);
+        currentHoveredObject = null;
+    }
+    document.body.style.cursor = "default";
     isModalOpen = false;
 
     gsap.to(modal, {
@@ -202,12 +298,12 @@ const hideModal = (modal) => {
             controls.enabled = true;
             flyToView("home");
 
-            suppressHoverUntil = performance.now() + 300; // 300ms kein Hover
+            suppressHoverUntil = performance.now() + 300;
             hoverArmed = false;
             currentIntersects = [];
             if (currentHoveredObject) {
-              playHoverAnimation(currentHoveredObject, false);
-              currentHoveredObject = null;
+                playHoverAnimation(currentHoveredObject, false);
+                currentHoveredObject = null;
             }
             document.body.style.cursor = "default";
         },
@@ -227,17 +323,14 @@ const socialLinks = {
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 
-//Loadres
 const textureLoader = new THREE.TextureLoader();
 
-// Instantiate a loader
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath("/draco/");
 
 const loader = new GLTFLoader();
 loader.setDRACOLoader(dracoLoader);
 
-// Texture Loader wenn ich mehr will dan Second usw. und , am ende von first
 const textureMap = {
     Baked: {
         day: "/textures/Room/Day/Texture.webp",
@@ -337,7 +430,6 @@ loader.load("/models/Room_Portfolio.glb", (glb) => {
                 );
             }
 
-            // Check für start animation
             if (child.name.includes("AnimGrandMA")) {
                 grandma2 = child;
                 child.scale.set(0, 0, 0);
@@ -395,49 +487,39 @@ const camera = new THREE.PerspectiveCamera(
     1000
 );
 
-
-
-
-
-
 const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
 renderer.setSize(sizes.width, sizes.height);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-// const geometry = new THREE.BoxGeometry( 1, 1, 1 );
-// const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
-
 const controls = new OrbitControls(camera, renderer.domElement);
-// controls.minDistance = 3.5;
-// controls.maxDistance = 10;
 
 controls.enableDamping = true;
 controls.dampingFactor = 0.03;
 controls.update();
 
-const azimuthLimit = Math.PI / 15;  // Pan (klein = viel bewegung, groß = wenig bewegung)
-const polarLimit   = Math.PI / 30;  // Tilt (klein = viel bewegung, groß = wenig bewegung)
+const azimuthLimit = Math.PI / 15;
+const polarLimit = Math.PI / 30;
 
-const minZoomOffset = -0.5; // wie weit ran
-const maxZoomOffset =  0.5; // wie weit raus
+const minZoomOffset = -0.5;
+const maxZoomOffset = 0.5;
 
 function clampOrbitAroundCurrentView() {
-  controls.update(); 
+    controls.update();
 
-  const polarCenter   = controls.getPolarAngle();
-  const azimuthCenter = controls.getAzimuthalAngle();
-  const distanceCenter = controls.getDistance();
+    const polarCenter = controls.getPolarAngle();
+    const azimuthCenter = controls.getAzimuthalAngle();
+    const distanceCenter = controls.getDistance();
 
-  controls.minPolarAngle = polarCenter - polarLimit;
-  controls.maxPolarAngle = polarCenter + polarLimit;
+    controls.minPolarAngle = polarCenter - polarLimit;
+    controls.maxPolarAngle = polarCenter + polarLimit;
 
-  controls.minAzimuthAngle = azimuthCenter - azimuthLimit;
-  controls.maxAzimuthAngle = azimuthCenter + azimuthLimit;
+    controls.minAzimuthAngle = azimuthCenter - azimuthLimit;
+    controls.maxAzimuthAngle = azimuthCenter + azimuthLimit;
 
-  controls.minDistance = Math.max(0.1, distanceCenter + minZoomOffset);
-  controls.maxDistance = distanceCenter + maxZoomOffset;
+    controls.minDistance = Math.max(0.1, distanceCenter + minZoomOffset);
+    controls.maxDistance = distanceCenter + maxZoomOffset;
 
-  controls.update();
+    controls.update();
 }
 
 camera.position.set(7.457997013443906, 4.2664251408437535, -3.9566580964541194);
@@ -449,88 +531,85 @@ controls.update();
 enableOrbitLimitsAroundCurrentView();
 
 function enableOrbitLimitsAroundCurrentView() {
-  clampOrbitAroundCurrentView();
+    clampOrbitAroundCurrentView();
 }
 
 function disableOrbitLimits() {
-  controls.minPolarAngle = 0;
-  controls.maxPolarAngle = Math.PI;
+    controls.minPolarAngle = 0;
+    controls.maxPolarAngle = Math.PI;
 
-  controls.minAzimuthAngle = -Infinity;
-  controls.maxAzimuthAngle = Infinity;
+    controls.minAzimuthAngle = -Infinity;
+    controls.maxAzimuthAngle = Infinity;
 
-  controls.minDistance = 0;
-  controls.maxDistance = Infinity;
+    controls.minDistance = 0;
+    controls.maxDistance = Infinity;
 }
 
 const HOME_VIEW = {
-  position: camera.position.clone(),
-  target: controls.target.clone()
+    position: camera.position.clone(),
+    target: controls.target.clone()
 };
 
 const VIEWS = {
-  home: HOME_VIEW,
+    home: HOME_VIEW,
 
-  workPC: {
-    position: new THREE.Vector3(6.011918667226149, 4.165424262115528, -4.151384665960448),
-    target:   new THREE.Vector3(5.4, 4.15, -4.18),
-  },
-  workCamera: {
-    position: new THREE.Vector3(5.889881184473396, 3.989059500010512, -5.3108671519258435),
-    target:   new THREE.Vector3(5.8, 3.99, -5.31),
-  },
-  workEvent: {
-    position: new THREE.Vector3(5.711951377719833, 4.078826981178438, -3.643985967008238),
-    target:   new THREE.Vector3(5.24, 4.0, -3.6),
-  },
-  aboutMe: {
-    position: new THREE.Vector3(7.1, 4.7, -4.8),
-    target:   new THREE.Vector3(6.4, 4.4, -5.2),
-  }
+    workPC: {
+        position: new THREE.Vector3(6.011918667226149, 4.165424262115528, -4.151384665960448),
+        target: new THREE.Vector3(5.4, 4.15, -4.18),
+    },
+    workCamera: {
+        position: new THREE.Vector3(5.889881184473396, 3.989059500010512, -5.3108671519258435),
+        target: new THREE.Vector3(5.8, 3.99, -5.31),
+    },
+    workEvent: {
+        position: new THREE.Vector3(5.711951377719833, 4.078826981178438, -3.643985967008238),
+        target: new THREE.Vector3(5.24, 4.0, -3.6),
+    },
+    aboutMe: {
+        position: new THREE.Vector3(7.1, 4.7, -4.8),
+        target: new THREE.Vector3(6.4, 4.4, -5.2),
+    }
 };
 
 let isCameraMoving = false;
 
 function flyToView(viewKey, { duration = 0.7, ease = "power2.out", onComplete } = {}) {
-  const view = VIEWS[viewKey];
-  if (!view) return;
+    const view = VIEWS[viewKey];
+    if (!view) return;
 
-  isCameraMoving = true;
-  controls.enabled = false;
+    isCameraMoving = true;
+    controls.enabled = false;
 
-  disableOrbitLimits();
+    disableOrbitLimits();
 
-  gsap.killTweensOf(camera.position);
-  gsap.killTweensOf(controls.target);
+    gsap.killTweensOf(camera.position);
+    gsap.killTweensOf(controls.target);
 
-  const tl = gsap.timeline({
-    defaults: { duration, ease },
-    onUpdate: () => controls.update(),
-    onComplete: () => {
-      controls.update();
-      gsap.delayedCall(0.05, enableOrbitLimitsAroundCurrentView);
+    const tl = gsap.timeline({
+        defaults: { duration, ease },
+        onUpdate: () => controls.update(),
+        onComplete: () => {
+            controls.update();
+            gsap.delayedCall(0.05, enableOrbitLimitsAroundCurrentView);
 
-      controls.enabled = true;
-      isCameraMoving = false;
+            controls.enabled = true;
+            isCameraMoving = false;
 
-      if (typeof onComplete === "function") onComplete(); // ✅ neu
-    }
-  });
+            if (typeof onComplete === "function") onComplete();
+        }
+    });
 
-  tl.to(camera.position, { x: view.position.x, y: view.position.y, z: view.position.z }, 0);
-  tl.to(controls.target, { x: view.target.x, y: view.target.y, z: view.target.z }, 0);
+    tl.to(camera.position, { x: view.position.x, y: view.position.y, z: view.position.z }, 0);
+    tl.to(controls.target, { x: view.target.x, y: view.target.y, z: view.target.z }, 0);
 }
 
-// Event Listeners
 window.addEventListener("resize", () => {
     sizes.width = window.innerWidth;
     sizes.height = window.innerHeight;
 
-    // Update Camera
     camera.aspect = sizes.width / sizes.height;
     camera.updateProjectionMatrix();
 
-    // Update renderer
     renderer.setSize(sizes.width, sizes.height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 });
@@ -570,44 +649,41 @@ function playHoverAnimation(object, isHovering) {
 }
 
 const render = () => {
-  controls.update();
+    controls.update();
 
-  // Raycaster / Hover
-  if (isModalOpen || isCameraMoving || !hoverArmed || performance.now() < suppressHoverUntil) {
-    // Hover sicher aus
-    if (currentHoveredObject) {
-      playHoverAnimation(currentHoveredObject, false);
-      currentHoveredObject = null;
-    }
-    document.body.style.cursor = "default";
-  } else {
-    raycaster.setFromCamera(pointer, camera);
-    currentIntersects = raycaster.intersectObjects(raycasterObjects);
-
-    if (currentIntersects.length > 0) {
-      const obj = currentIntersects[0].object;
-
-      if (obj.name.includes("Hover")) {
-        if (obj !== currentHoveredObject) {
-          if (currentHoveredObject) playHoverAnimation(currentHoveredObject, false);
-          playHoverAnimation(obj, true);
-          currentHoveredObject = obj;
+    if (isModalOpen || isCameraMoving || !hoverArmed || performance.now() < suppressHoverUntil) {
+        if (currentHoveredObject) {
+            playHoverAnimation(currentHoveredObject, false);
+            currentHoveredObject = null;
         }
-      }
-
-      document.body.style.cursor = obj.name.includes("Pointer") ? "pointer" : "default";
+        document.body.style.cursor = "default";
     } else {
-      if (currentHoveredObject) {
-        playHoverAnimation(currentHoveredObject, false);
-        currentHoveredObject = null;
-      }
-      document.body.style.cursor = "default";
-    }
-  }
+        raycaster.setFromCamera(pointer, camera);
+        currentIntersects = raycaster.intersectObjects(raycasterObjects);
 
-  renderer.render(scene, camera);
-  requestAnimationFrame(render);
+        if (currentIntersects.length > 0) {
+            const obj = currentIntersects[0].object;
+
+            if (obj.name.includes("Hover")) {
+                if (obj !== currentHoveredObject) {
+                    if (currentHoveredObject) playHoverAnimation(currentHoveredObject, false);
+                    playHoverAnimation(obj, true);
+                    currentHoveredObject = obj;
+                }
+            }
+
+            document.body.style.cursor = obj.name.includes("Pointer") ? "pointer" : "default";
+        } else {
+            if (currentHoveredObject) {
+                playHoverAnimation(currentHoveredObject, false);
+                currentHoveredObject = null;
+            }
+            document.body.style.cursor = "default";
+        }
+    }
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(render);
 };
 
 render();
-

@@ -49,9 +49,14 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(80vw, calc(100vw - 24px));  // min(entweder das, calc(100%viewer window - oder das)) der kleiner wert
+  width: min(80vw, calc(100vw - 24px));
   max-height: min(90vh, calc(100dvh - 24px));
-  padding: clamp(16px, 3vw, 40px) clamp(14px, 2.5vw, 30px);
+  padding-left: clamp(14px, 2.5vw, 30px);
+  padding-right: clamp(14px, 2.5vw, 30px);
+
+  /* NEU: oben/unten mindestens so groß wie der Fade */
+  padding-top: max(clamp(16px, 3vw, 40px), var(--modal-fade));
+  padding-bottom: max(clamp(16px, 3vw, 40px), var(--modal-fade));
   
   background-color: rgba(249, 249, 249, 0);
   border-radius: 16px;
@@ -90,33 +95,48 @@
 }
 
 .modal-content {
+  width: 100%;
   overflow-y: visible;
   max-height: none;
+
 }
 
 // ========================================
-// Instagram Grid
+// Masonry Container (Pinterest-Style)
 // ========================================
 
-.insta-grid {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  justify-content: center !important;
-  gap: max(calc(1vw), calc(15px)) !important;
-}
+.insta-masonry {
+  /* keep 3 columns feeling, but allow variable height posts (Pinterest-like) */
+  --card-w: max(calc(20vw), calc(230px + 5vw));
 
-.insta-grid > .iframe-wrapper {
-  // flex: 0 0 min(calc(8vw + 240px), calc(100vw - 12px)) !important; // flex: größer werden, kleiner werden, Startbreite
-  // max-width: min(calc(8vw + 240px), calc(100vw - 12px)) !important;
-  flex: 0 0 max(calc(20vw), calc(230px + 5vw)) !important; // flex: größer werden, kleiner werden, Startbreite
-  max-width: max(calc(20vw), calc(230px + 5vw)) !important;
   width: 100% !important;
-  height: auto !important;
-  aspect-ratio: 4 / 5 !important;
-  
+  display: flex !important;
+  gap: max(calc(1vw), calc(15px)) !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  overflow: visible !important;
+}
+
+.masonry-column {
+  flex: 0 0 var(--card-w) !important;
+  max-width: var(--card-w) !important;
+
+  display: flex !important;
+  flex-direction: column !important;
+  gap: max(calc(1vw), calc(15px)) !important;
+
+  overflow: visible !important;
+}
+
+// ========================================
+// Instagram Posts (Individual Items)
+// ========================================
+
+.iframe-wrapper {
+  width: 100% !important;
   position: relative !important;
   overflow: hidden !important;
-  border-radius: 12px !important;
+  border-radius: 1vw !important;
   background: #000 !important;
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -132,31 +152,32 @@
 // Instagram Embed
 // ========================================
 
-.insta-grid .insta-embed {
+.insta-embed {
   position: absolute !important;
   inset: 0 !important;
   background: transparent !important;
 
   iframe {
+    --ig-shift: 55px;
+
     position: absolute !important;
     inset: 0 !important;
-    display: block !important;
+
     width: 100% !important;
-    height: 100% !important;
-    border: 0 !important;
-    background: transparent !important;
-    transform: translateY(-12%) scale(1.12) !important;
+    height: calc(100% + var(--ig-shift)) !important;  // ✅ mehr Höhe geben
+
+    transform: translateY(calc(-1 * var(--ig-shift))) scale(1) !important; // ✅ Header hochschieben
     transform-origin: top center !important;
   }
 }
 
-.insta-grid .insta-embed,
-.insta-grid .insta-embed * {
+.insta-embed,
+.insta-embed * {
   box-shadow: none !important;
   outline: none !important;
 }
 
-.insta-grid > .iframe-wrapper:hover .insta-embed {
+.iframe-wrapper:hover .insta-embed {
   filter: brightness(0.75);
 }
 
@@ -164,19 +185,19 @@
 // Post Overlay & Meta
 // ========================================
 
-.insta-grid .iframe-cover {
+.iframe-cover {
   position: absolute !important;
   inset: 0 !important;
   z-index: 5 !important;
   display: none;
 }
 
-.insta-grid .post-meta {
+.post-meta {
   position: absolute !important;
   left: 0 !important;
   right: 0 !important;
   bottom: 0 !important;
-  padding: max(11vw, calc(7vw + 50px)) 16px !important; 
+  padding: var(--meta-pad, 120px) 0.7vw !important; 
   z-index: 10 !important;
   
   color: #fff !important;
@@ -188,29 +209,29 @@
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
-.insta-grid .iframe-wrapper:hover .post-meta {
+.iframe-wrapper:hover .post-meta {
   opacity: 1;
   transform: translateY(0);
 }
 
-.insta-grid .post-title {
+.post-title {
   font-family: "Marimpa", sans-serif;
   font-size: max(calc(4vw), calc(70px + 0vw)) !important;
   font-weight: 600 !important;
   line-height: 1.2 !important;
 }
 
-.insta-grid .post-sub {
+.post-sub {
   font-family: "Marimpa", sans-serif;
   font-size: max(calc(2vw), calc(35px + 0vw)) !important;
   opacity: 0.85 !important;
   margin-top: 4px !important;
 }
 
-.insta-grid .post-date {
+.post-date {
   position: absolute !important;
-  left: 16px !important;
-  bottom: 10px !important;
+  left: 0.7vw !important;
+  bottom: 0.4vw !important;
   font-size: max(calc(1vw), calc(20px + 0vw)) !important;
   font-style: italic !important;
   opacity: 0.7 !important;
@@ -247,12 +268,12 @@
 
 .global-modal-close {
   position: fixed;
-  left: 16px;
-  top: 16px;
+  left: 12vw;
+  top: 3vw;
   z-index: 999999;
   
-  width: 56px;
-  height: 56px;
+  width: 4vw;
+  height: 4vw;
   padding: 0;
   border: 0;
   background: transparent;
@@ -282,14 +303,28 @@
 // Responsive Design
 // ========================================
 
+@media (max-width: 980px) {
+  .insta-masonry {
+    align-items: flex-start !important;
+  }
+}
+
+/* Mobile/1 Spalte: horizontal zentrieren */
 @media (max-width: 520px) {
-  .insta-grid > .iframe-wrapper {
-    max-width: 520px !important;
+  .insta-masonry {
+    justify-content: center !important;
+    align-items: flex-start !important;
+  }
+
+  .masonry-column {
+    width: auto !important;
+    flex: 0 0 var(--card-w) !important;
+    max-width: var(--card-w) !important;
   }
 }
 
 @media (hover: none) {
-  .insta-grid > .iframe-wrapper:hover {
+  .iframe-wrapper:hover {
     transform: none !important;
   }
 }
