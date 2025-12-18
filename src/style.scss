@@ -136,7 +136,7 @@
   width: 100% !important;
   position: relative !important;
   overflow: hidden !important;
-  border-radius: 1vw !important;
+  border-radius: max(calc(1vw), calc(15px + 0vw)) !important;
   background: #000 !important;
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -197,7 +197,7 @@
   left: 0 !important;
   right: 0 !important;
   bottom: 0 !important;
-  padding: var(--meta-pad, 120px) 0.7vw !important; 
+  padding: clamp(35px, var(--meta-pad), 120px) 0.7vw !important; 
   z-index: 10 !important;
   
   color: #fff !important;
