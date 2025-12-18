@@ -269,11 +269,11 @@
 .global-modal-close {
   position: fixed;
   left: 12vw;
-  top: 3vw;
+  top: max(calc(3vw), calc(20px + 0vw));
   z-index: 999999;
   
-  width: 4vw;
-  height: 4vw;
+  width: max(calc(4vw), calc(50px + 0vw));
+  height: max(calc(4vw), calc(50px + 0vw));
   padding: 0;
   border: 0;
   background: transparent;
