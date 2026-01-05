@@ -41,6 +41,49 @@
 }
 
 // ========================================
+// Loading Screen
+// ========================================
+
+.loading-screen {
+  pointer-events: all;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 108vw;
+  height: 108vh;
+  margin-left: -54vw;
+  margin-top: -54vh;
+  overflow: hidden;
+  z-index: 999999;
+  border: 8px solid vars.$base-purple;
+  background-color: vars.$base-background;
+  transform: perspective(1000px);
+  border-radius: 48px;
+
+  /* Fade */
+  opacity: 1;
+  transition: opacity 0.5s ease;
+}
+
+.loading-screen-button{
+  border: 8px solid vars.$base-border;
+  background: vars.$base-background-small;
+  color: vars.$base-text;
+  border-radius: 32px;
+  padding: 18px 26px;
+  font-size: max(3vw, 20px);
+}
+
+/* wenn du reingehst */
+.loading-screen--hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+// ========================================
 // Modal
 // ========================================
 

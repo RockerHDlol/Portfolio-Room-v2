@@ -6,10 +6,33 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite App</title>
+    <title>Caspar's Portfolio</title>
+    <style>
+  html, body { margin: 0; padding: 0; background: #2b0f0f; }
+
+  /* Canvas darf nie "weiß" wirken */
+  #experience, #experience-canvas { background: #2b0f0f; display: block; }
+
+  /* Loading sofort sichtbar – bevor CSS/JS lädt */
+  .loading-screen{
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    background: #2b0f0f;
+    display: grid;
+    place-items: center;
+  }
+</style>
   </head>
 
   <body>
+
+    <div class="loading-screen">
+      <button class="loading-screen-button">
+        Loading ...
+      </button>
+    </div>
+
     <div id="app"></div>
 
     <div class="workPC modal">
