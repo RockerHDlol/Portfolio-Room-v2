@@ -536,10 +536,19 @@ document.addEventListener("click", (e) => {
 
 if (menuPanel) {
   menuPanel.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-action='view']");
-    if (!btn) return;
+    const viewBtn = e.target.closest("[data-action='view']");
+    const aboutBtn = e.target.closest("[data-action='about']");
 
-    const view = btn.getAttribute("data-view");
+    if (aboutBtn) {
+      closeMenu();
+      hideMenuUI();
+      showAboutBox();
+      return;
+    }
+
+    if (!viewBtn) return;
+
+    const view = viewBtn.getAttribute("data-view");
     closeMenu();
 
     if (view === "workPC") {
@@ -554,6 +563,7 @@ if (menuPanel) {
     }
   });
 }
+
 
 manager.onLoad = () => {
   loadingScreenButton.style.boxShadow = "rgba(0, 0, 0, 0.24) 0px 3px 8px";
