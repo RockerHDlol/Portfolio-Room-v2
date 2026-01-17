@@ -12,6 +12,42 @@ import gsap from "gsap";
  */
 let interactionEnabled = false;
 
+
+// ----- Top-right menu -----
+let isMenuOpen = false;
+const menuRoot = document.querySelector(".site-menu");
+const menuToggleBtn = document.getElementById("menuToggle");
+const menuBackdrop = document.getElementById("menuBackdrop");
+const menuPanel = document.getElementById("siteMenuPanel");
+
+// ✅ HARTE INITIALISIERUNG - Menü komplett geschlossen
+isMenuOpen = false;
+
+if (menuRoot) {
+  menuRoot.classList.remove("is-open");
+  menuRoot.classList.remove("is-ready");
+  // ✅ menuRoot NIE verstecken – sonst sind die 3 Striche weg
+  menuRoot.style.display = "";
+  menuRoot.style.opacity = "1";
+  menuRoot.style.pointerEvents = "auto";
+}
+
+
+if (menuToggleBtn) {
+  menuToggleBtn.setAttribute("aria-expanded", "false");
+  gsap.set(menuToggleBtn, { opacity: 0, y: -6, scale: 0.95 });
+}
+
+if (menuBackdrop) {
+  menuBackdrop.hidden = true;
+  gsap.set(menuBackdrop, { opacity: 0 });
+}
+
+if (menuPanel) {
+  menuPanel.hidden = true;
+  gsap.set(menuPanel, { opacity: 0, x: 12 });
+}
+
 const canvas = document.querySelector("#experience-canvas");
 const sizes = {
   width: window.innerWidth,
@@ -27,9 +63,94 @@ const modals = {
   workPC: document.querySelector(".modal.workPC"),
   workCamera: document.querySelector(".modal.workCamera"),
   workEvent: document.querySelector(".modal.workEvent"),
-  aboutMe: document.querySelector(".modal.aboutMe"),
   contact: document.querySelector(".modal.contact"),
 };
+
+const aboutBox = document.querySelector("#aboutMeBox");
+
+function showAboutBox() {
+  if (!aboutBox) return;
+  hideMenuUI();
+
+  const inner = aboutBox.querySelector(".about-box-inner") || aboutBox;
+  inner.appendChild(globalCloseBtn);
+
+  aboutBox.style.display = "block";
+  aboutBox.setAttribute("aria-hidden", "false");
+
+  globalCloseBtn.classList.add("is-about");
+  globalCloseBtn.style.display = "grid";
+
+  isModalOpen = true;
+
+  controls.enabled = false;
+  controls.enableRotate = false;
+  controls.enableZoom = false;
+  controls.enablePan = false;
+  controls.enableDamping = false;
+
+  if (currentHoveredObject) {
+    playHoverAnimation(currentHoveredObject, false);
+    currentHoveredObject = null;
+  }
+  document.body.style.cursor = "default";
+  currentIntersects = [];
+
+  gsap.killTweensOf(aboutBox);
+  gsap.killTweensOf(inner);
+
+  gsap.set(aboutBox, { opacity: 1 });
+  gsap.fromTo(
+    inner,
+    { opacity: 0, y: 10 },
+    { opacity: 1, y: 0, duration: 0.45, ease: "circ.out", overwrite: "auto" }
+  );
+}
+
+function hideAboutBox() {
+  if (!aboutBox) return;
+  showMenuUI();
+  globalCloseBtn.classList.remove("is-about");
+  globalCloseBtn.style.display = "none";
+
+  const inner = aboutBox.querySelector(".about-box-inner") || aboutBox;
+
+  gsap.killTweensOf(aboutBox);
+  gsap.killTweensOf(inner);
+
+  gsap.to(inner, {
+    opacity: 0,
+    y: 10,
+    duration: 0.35,
+    ease: "power2.in",
+    onComplete: () => {
+      document.body.appendChild(globalCloseBtn);
+      aboutBox.style.display = "none";
+      aboutBox.setAttribute("aria-hidden", "true");
+
+      globalCloseBtn.classList.remove("is-about");
+      globalCloseBtn.style.display = "none";
+      isModalOpen = false;
+
+      controls.enableRotate = true;
+      controls.enableZoom = true;
+      controls.enablePan = false;
+      controls.enableDamping = true;
+      controls.enabled = true;
+
+      flyToView("home");
+
+      suppressHoverUntil = performance.now() + 300;
+      hoverArmed = false;
+      currentIntersects = [];
+      if (currentHoveredObject) {
+        playHoverAnimation(currentHoveredObject, false);
+        currentHoveredObject = null;
+      }
+      document.body.style.cursor = "default";
+    },
+  });
+}
 
 const globalCloseBtn = document.createElement("button");
 globalCloseBtn.className = "global-modal-close";
@@ -39,6 +160,11 @@ document.body.appendChild(globalCloseBtn);
 globalCloseBtn.style.display = "none";
 
 globalCloseBtn.addEventListener("click", () => {
+  if (aboutBox && aboutBox.style.display === "block") {
+    hideAboutBox();
+    return;
+  }
+
   const openModal = document.querySelector(".modal[style*='display: block']");
   if (openModal) hideModal(openModal);
 });
@@ -160,7 +286,7 @@ function renderInstagramEmbeds(modalElement, modalKey) {
     }
 
     const w = window.innerWidth;
-    const numCols = w <= 520 ? 1 : w <= 980 ? 2 : 3;
+    const numCols = w <= 600 ? 1 : w <= 1000 ? 2 : 3;
 
     const gap = 15;
     const colWidth = (containerWidth - (numCols - 1) * gap) / numCols;
@@ -206,7 +332,6 @@ const manager = new THREE.LoadingManager();
 const loadingScreen = document.querySelector(".loading-screen");
 const loadingScreenButton = document.querySelector(".loading-screen-button");
 
-// START: button disabled until assets loaded
 loadingScreenButton.style.cursor = "not-allowed";
 loadingScreenButton.textContent = "Loading ...";
 
@@ -227,12 +352,207 @@ function playReveal() {
       onComplete: () => {
         playIntroAnimtion();
         loadingScreen.remove();
-        interactionEnabled = true; // ✅ unlock after reveal is done
+        revealHamburgerMenu();
+        interactionEnabled = true;
         canvas.style.opacity = "1";
       },
     },
     "-=0.1"
   );
+}
+
+function revealHamburgerMenu() {
+  if (!menuRoot || !menuToggleBtn) return;
+
+  // ✅ Sicherstellen dass Menü GESCHLOSSEN ist
+  isMenuOpen = false;
+  menuRoot.classList.remove("is-open");
+  document.body.classList.remove("menu-open");
+
+  
+  if (menuBackdrop) {
+    menuBackdrop.hidden = true;
+    gsap.set(menuBackdrop, { opacity: 0 });
+  }
+  
+  if (menuPanel) {
+    menuPanel.hidden = true;
+    gsap.set(menuPanel, { opacity: 0, x: 12 });
+  }
+
+  // ✅ Nur wenn noch nicht initialisiert
+  if (menuRoot.classList.contains("is-ready")) return;
+
+  // menuRoot.style.display = "";         // ✅ erst jetzt existiert es wieder
+
+  menuRoot.classList.add("is-ready");
+  menuRoot.style.pointerEvents = "auto";
+
+  gsap.to(menuRoot, {
+    opacity: 1,
+    duration: 0.3,
+    ease: "power1.out",
+  });
+
+  gsap.to(menuToggleBtn, {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    duration: 0.35,
+    ease: "back.out(1.7)",
+  });
+}
+
+function openMenu() {
+  if (!menuRoot || !menuToggleBtn || !menuPanel || !menuBackdrop) return;
+  if (isMenuOpen) return;
+  if (isModalOpen) return;
+
+  isMenuOpen = true;
+
+  menuRoot.classList.add("is-open");
+  document.body.classList.add("menu-open");
+  menuToggleBtn.setAttribute("aria-expanded", "true");
+
+  menuBackdrop.hidden = false;
+  menuPanel.hidden = false;
+
+  controls.enabled = false;
+  hoverArmed = false;
+  suppressHoverUntil = performance.now() + 999999;
+  
+  if (currentHoveredObject) {
+    playHoverAnimation(currentHoveredObject, false);
+    currentHoveredObject = null;
+  }
+  document.body.style.cursor = "default";
+
+  gsap.killTweensOf(menuBackdrop);
+  gsap.killTweensOf(menuPanel);
+
+  gsap.to(menuBackdrop, { opacity: 1, duration: 0.18, ease: "power1.out" });
+  gsap.fromTo(
+    menuPanel,
+    { opacity: 0, x: 12 },
+    { opacity: 1, x: 0, duration: 0.22, ease: "power2.out" }
+  );
+}
+
+function closeMenu() {
+  if (!menuRoot || !menuToggleBtn || !menuPanel || !menuBackdrop) return;
+  if (!isMenuOpen) return;
+
+  isMenuOpen = false;
+
+  menuRoot.classList.remove("is-open");
+  document.body.classList.remove("menu-open");
+  menuToggleBtn.setAttribute("aria-expanded", "false");
+
+  gsap.killTweensOf(menuBackdrop);
+  gsap.killTweensOf(menuPanel);
+
+  gsap.to(menuBackdrop, {
+    opacity: 0,
+    duration: 0.18,
+    ease: "power1.in",
+    onComplete: () => (menuBackdrop.hidden = true),
+  });
+  gsap.to(menuPanel, {
+    opacity: 0,
+    x: 12,
+    duration: 0.18,
+    ease: "power2.in",
+    onComplete: () => (menuPanel.hidden = true),
+  });
+
+  gsap.delayedCall(0.05, () => {
+    controls.enabled = true;
+    suppressHoverUntil = performance.now() + 250;
+    hoverArmed = false;
+  });
+}
+
+function hideMenuUI() {
+  if (!menuRoot) return;
+
+  if (isMenuOpen) closeMenu();
+
+  gsap.killTweensOf(menuRoot);
+
+  gsap.to(menuRoot, {
+    opacity: 0,
+    duration: 0.2,
+    ease: "power1.out",
+    onComplete: () => {
+      menuRoot.style.pointerEvents = "none";
+      menuRoot.style.display = "none";
+    },
+  });
+}
+
+function showMenuUI() {
+  if (!menuRoot) return;
+
+  gsap.killTweensOf(menuRoot);
+
+  menuRoot.style.display = "";
+  menuRoot.style.pointerEvents = "auto";
+
+  gsap.fromTo(
+    menuRoot,
+    { opacity: 0 },
+    {
+      opacity: 1,
+      duration: 0.25,
+      ease: "power1.out",
+    }
+  );
+}
+
+// Menu listeners
+menuToggleBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+
+  if (!interactionEnabled || isModalOpen) return;
+
+  isMenuOpen ? closeMenu() : openMenu();
+});
+
+document.addEventListener("click", (e) => {
+  if (!isMenuOpen) return;
+
+  // wenn du auf den Toggle oder ins Panel klickst -> NICHT schließen
+  if (menuToggleBtn?.contains(e.target)) return;
+  if (menuPanel?.contains(e.target)) return;
+
+  // alles andere ist "outside"
+  closeMenu();
+});
+
+
+// if (menuBackdrop) menuBackdrop.addEventListener("click", () => closeMenu());
+
+
+if (menuPanel) {
+  menuPanel.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-action='view']");
+    if (!btn) return;
+
+    const view = btn.getAttribute("data-view");
+    closeMenu();
+
+    if (view === "workPC") {
+      hideMenuUI();
+      flyToView("workPC", { onComplete: () => showModal(modals.workPC, "workPC") });
+    } else if (view === "workCamera") {
+      hideMenuUI();
+      flyToView("workCamera", { onComplete: () => showModal(modals.workCamera, "workCamera") });
+    } else if (view === "workEvent") {
+      hideMenuUI();
+      flyToView("workEvent", { onComplete: () => showModal(modals.workEvent, "workEvent") });
+    }
+  });
 }
 
 manager.onLoad = () => {
@@ -245,20 +565,16 @@ manager.onLoad = () => {
   let isDisabled = false;
 
   const enter = (e) => {
-    
     e.preventDefault();
-    e.stopPropagation(); // ✅ prevents click-through
+    e.stopPropagation();
 
     if (isDisabled) return;
     isDisabled = true;
 
-    // feedback
     loadingScreenButton.style.boxShadow = "none";
     loadingScreenButton.textContent = "Welcome!";
     loadingScreen.style.backgroundColor = "#4b000aff";
 
-
-    // keep disabled until reveal finished
     interactionEnabled = false;
 
     playReveal();
@@ -287,15 +603,44 @@ manager.onLoad = () => {
   );
 };
 
+window.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+
+  const tag = document.activeElement?.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+  const isLoadingVisible =
+    loadingScreen &&
+    getComputedStyle(loadingScreen).display !== "none" &&
+    loadingScreen.style.opacity !== "0";
+
+  if (!isLoadingVisible) return;
+
+  loadingScreenButton?.click();
+});
+
 // ----- Modals -----
 let isModalOpen = false;
 
-loadPostsFromSheet().catch(console.error);
+let postsLoaded = false;
+let postsPromise = null;
+
+manager.itemStart("posts");
+postsPromise = loadPostsFromSheet()
+  .catch((err) => {
+    console.error(err);
+  })
+  .finally(() => {
+    postsLoaded = true;
+    manager.itemEnd("posts");
+  });
 
 const showModal = async (modal, modalKey = null) => {
   console.log(`Opening modal: ${modalKey}`);
   modal.style.display = "block";
+  globalCloseBtn.classList.remove("is-about");
   globalCloseBtn.style.display = "grid";
+
   isModalOpen = true;
 
   controls.enabled = false;
@@ -316,7 +661,7 @@ const showModal = async (modal, modalKey = null) => {
   }
 
   gsap.set(modal, { opacity: 0 });
-  gsap.to(modal, { opacity: 1, duration: 0.5 });
+  gsap.to(modal, { opacity: 1, duration: 0.35 });
 };
 
 const hideModal = (modal) => {
@@ -335,10 +680,11 @@ const hideModal = (modal) => {
 
   gsap.to(modal, {
     opacity: 0,
-    duration: 0.5,
+    duration: 0.35,
     onComplete: () => {
       globalCloseBtn.style.display = "none";
       modal.style.display = "none";
+      showMenuUI();
 
       controls.enableRotate = true;
       controls.enableZoom = true;
@@ -382,11 +728,11 @@ dracoLoader.setDecoderPath("/draco/");
 const loader = new GLTFLoader(manager);
 loader.setDRACOLoader(dracoLoader);
 
-// textures
 const textureMap = {
   Pic1: { day: "/textures/Room/Day/Pic1.webp" },
   Pic2: { day: "/textures/Room/Day/Pic2.webp" },
   Pic3: { day: "/textures/Room/Day/Pic3.webp" },
+  Pic4: { day: "/textures/Room/Day/Pic4.webp" },
 };
 
 const loadedTextures = { day: {} };
@@ -398,7 +744,6 @@ Object.entries(textureMap).forEach(([key, paths]) => {
   loadedTextures.day[key] = dayTexture;
 });
 
-// scene
 const scene = new THREE.Scene();
 
 window.addEventListener("mousemove", (e) => {
@@ -411,7 +756,11 @@ window.addEventListener("mousemove", (e) => {
 window.addEventListener(
   "touchstart",
   (e) => {
-    if (isModalOpen) return;
+    // ✅ UI touches (Burger/Menu) NICHT hijacken
+    if (e.target.closest(".site-menu")) return;
+
+    if (isMenuOpen || isModalOpen) return;
+
     e.preventDefault();
     pointer.x = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
     pointer.y = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
@@ -419,11 +768,16 @@ window.addEventListener(
   { passive: false }
 );
 
+
 window.addEventListener(
   "touchend",
   (e) => {
-    if (isModalOpen) return;
-    if (!interactionEnabled) return; // ✅ guard
+    // ✅ UI touches (Burger/Menu) NICHT hijacken
+    if (e.target.closest(".site-menu")) return;
+
+    if (isMenuOpen || isModalOpen) return;
+    if (!interactionEnabled || isMenuOpen || isModalOpen) return;
+
     e.preventDefault();
     handleRaycasterInteraction();
   },
@@ -431,8 +785,12 @@ window.addEventListener(
 );
 
 function handleRaycasterInteraction() {
-  if (!interactionEnabled) return; // ✅ guard for safety
-  if (isModalOpen || isCameraMoving) return;
+  if (!interactionEnabled || isModalOpen || isCameraMoving) return;
+
+  if (isMenuOpen) {
+    closeMenu();
+    return;
+  }
 
   if (currentIntersects.length > 0) {
     const object = currentIntersects[0].object;
@@ -448,13 +806,17 @@ function handleRaycasterInteraction() {
     });
 
     if (object.name.includes("workPC")) {
+      hideMenuUI();
       flyToView("workPC", { onComplete: () => showModal(modals.workPC, "workPC") });
     } else if (object.name.includes("workCamera")) {
+      hideMenuUI();
       flyToView("workCamera", { onComplete: () => showModal(modals.workCamera, "workCamera") });
     } else if (object.name.includes("workEvent")) {
+      hideMenuUI();
       flyToView("workEvent", { onComplete: () => showModal(modals.workEvent, "workEvent") });
     } else if (object.name.includes("aboutMe")) {
-      flyToView("aboutMe", { onComplete: () => showModal(modals.aboutMe) });
+      hideMenuUI();
+      showAboutBox();
     } else if (object.name.includes("contact")) {
       showModal(modals.contact);
     }
@@ -462,11 +824,24 @@ function handleRaycasterInteraction() {
 }
 
 window.addEventListener("click", (e) => {
-  if (!interactionEnabled) return;
+  if (!interactionEnabled || isMenuOpen || isModalOpen) return;
   handleRaycasterInteraction();
 });
 
-// ----- Load GLB -----
+window.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+
+  if (isMenuOpen) {
+    closeMenu();
+    return;
+  }
+
+  if (isModalOpen) {
+    closeModal();
+    return;
+  }
+});
+
 let grandma2, poster1;
 
 loader.load("/models/Room_Portfolio.glb", (glb) => {
@@ -601,10 +976,6 @@ const VIEWS = {
     position: new THREE.Vector3(5.573762, 4.116623, -3.628980),
     target: new THREE.Vector3(5.241140, 4.008493, -3.582967),
   },
-  aboutMe: {
-    position: new THREE.Vector3(7.1, 4.7, -4.8),
-    target: new THREE.Vector3(6.4, 4.4, -5.2),
-  },
 };
 
 let isCameraMoving = false;
@@ -699,6 +1070,8 @@ function render() {
     //     controls.target.y.toFixed(6),
     //     controls.target.z.toFixed(6)
     // );
+
+  if (performance.now() >= suppressHoverUntil) hoverArmed = true;
 
   if (
     isModalOpen ||

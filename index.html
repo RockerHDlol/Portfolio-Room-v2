@@ -10,6 +10,8 @@
     <style>
   html, body { margin: 0; padding: 0; background: #2b0f0f; }
 
+  
+
   /* Canvas darf nie "weiß" wirken */
   #experience, #experience-canvas { background: #2b0f0f; display: block; }
 
@@ -27,13 +29,35 @@
 
   <body>
 
+    
+
     <div class="loading-screen">
       <button class="loading-screen-button">
         Loading ...
       </button>
     </div>
 
-    <div id="app"></div>
+    <div class="site-menu" aria-hidden="true">
+  <button class="hamburger" id="menuToggle" aria-label="Open menu"
+    aria-expanded="false" aria-controls="siteMenuPanel" type="button">
+    <span></span><span></span><span></span>
+  </button>
+
+  <div class="menu-backdrop" id="menuBackdrop" hidden></div>
+
+  <nav class="menu-panel" id="siteMenuPanel" hidden>
+    <button class="menu-link menu-link--primary" type="button" data-action="view" data-view="workEvent">EVENT</button>
+    <button class="menu-link menu-link--primary" type="button" data-action="view" data-view="workPC">3D</button>
+    <button class="menu-link menu-link--primary" type="button" data-action="view" data-view="workCamera">CAMERA</button>
+
+    <a class="menu-link menu-link--secondary" href="https://www.youtube.com" target="_blank" rel="noopener noreferrer">YouTube</a>
+    <a class="menu-link menu-link--secondary" href="https://www.instagram.com" target="_blank" rel="noopener noreferrer">Instagram</a>
+    <a class="menu-link menu-link--secondary" href="https://www.artstation.com" target="_blank" rel="noopener noreferrer">Artstation</a>
+  </nav>
+  </div>
+  
+  <div id="app"></div>
+
 
     <div class="workPC modal">
       <h1 class="modal-title"></h1>
@@ -50,8 +74,29 @@
       <div class="modal-content" data-modal="workEvent"></div>
     </div>
 
-    <div class="aboutMe modal">
-      <h1 class="modal-title">Kleines About me Fenster</h1>
+    <div id="aboutMeBox" class="about-box" aria-hidden="true">
+      <div class="about-box-inner">
+        <h1 class="about-box-title">ABOUT ME</h1>
+      
+        <p>Hi, I’m Caspar, a media designer based in Munich.</p>
+      
+        <p>I work across 3D, camera, lighting and live production, combining technical precision with a strong visual focus.</p>
+      
+        <p>
+          My work is rooted in hands-on operating across sets, stages, and control-room environments.
+          I’m equally comfortable in live productions and recorded workflows, and I value being involved directly in the production process.
+          Working close to the action, responding to changing situations, and making decisions that keep things moving smoothly.
+        </p>
+      
+        <p>
+          While my main focus is always on operating and execution, I also bring a strong understanding of the technical structures behind a production,
+          helping me adapt quickly and work efficiently across different setups and departments.
+        </p>
+
+        <p>
+          Mail: cre04@icloud.com
+        </p>
+      </div>
     </div>
 
     <div class="contact modal">

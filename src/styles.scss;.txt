@@ -44,14 +44,14 @@
     right: 0;
 
     /* Breite vom Fade-Bereich (anpassen wenn du willst) */
-    width: max(25vw, 270px);
+    width: min(42vw, 520px);
     height: 100vh;
 
     /* Fade kommt vom rechten Rand und läuft nach links aus */
     background: linear-gradient(
       to left,
       rgba(0, 0, 0, 0.85) 0%,
-      rgba(0, 0, 0, 0.75) 45%,
+      rgba(0, 0, 0, 0.85) 35%,
       rgba(0, 0, 0, 0.0) 75%
     );
 
@@ -124,7 +124,7 @@
 
     display: block;
     width: 80%;
-    height: max(6px, 0.3vw);
+    height: 7px;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.92);
     transition: transform 0.18s ease, opacity 0.18s ease;
@@ -173,18 +173,17 @@
    Hover auf X (wenn Menü offen)
    ======================================== */
 
-.site-menu.is-open .hamburger:hover span:nth-child(1) {
-  transform: translateY(7px) rotate(35deg) scale(1.1);
+.site-menu.is-open .hamburger {
+  transition: transform 0.15s ease;
 }
 
-.site-menu.is-open .hamburger:hover span:nth-child(2) {
-  opacity: 0;
+.site-menu.is-open .hamburger:hover {
+  transform: scale(3);
 }
 
-.site-menu.is-open .hamburger:hover span:nth-child(3) {
-  transform: translateY(-7px) rotate(-35deg) scale(1.1);
+.site-menu.is-open .hamburger:hover span {
+  background: rgba(255, 255, 255, 1);
 }
-
 
 
 
@@ -253,13 +252,13 @@
 }
 
 .menu-link--primary {
-  font-size: max(2.8vw, 40px);
+  font-size: max(2.2vw, 28px);
   font-weight: 800;
   letter-spacing: -0.02em;
 }
 
 .menu-link--secondary {
-  font-size: max(1.5vw, 20px);
+  font-size: max(1vw, 16px);
   font-weight: 500;
   opacity: 0.9;
 }
