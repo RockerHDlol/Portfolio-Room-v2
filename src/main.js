@@ -630,7 +630,7 @@ let slideStartX = 0;
 let slideStartT = 0;
 
 // wie “schnell” slideT reagiert (kleiner = langsamer)
-const SLIDE_SENSITIVITY = 1.2;
+const SLIDE_SENSITIVITY = 1.7;
 
 function canSlideNow(e) {
   // nicht sliden wenn UI offen / modal / menu / loading etc.
@@ -653,7 +653,7 @@ window.addEventListener("pointermove", (e) => {
   if (!canSlideNow(e)) return;
 
   const dx = (e.clientX - slideStartX) / window.innerWidth;
-  const nextT = slideStartT + dx * SLIDE_SENSITIVITY;
+  const nextT = slideStartT - dx * SLIDE_SENSITIVITY;
   applyCameraSlide(nextT);
 });
 
