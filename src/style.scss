@@ -388,13 +388,23 @@ body.menu-open #experience {
   backdrop-filter: blur(10px);
 
   color: #fff;
-  overflow: visible;
+
+  /* ✅ SCROLL FIX */
+  max-height: min(90vh, calc(100dvh - 24px));
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 
   // scrollbar optional verstecken
   &::-webkit-scrollbar { display: none; }
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+
+
 
 .about-box-title {
   font-family: "Satoshi", sans-serif;
