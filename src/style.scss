@@ -374,6 +374,7 @@ body.menu-open #experience {
 
   display: none; // wird per JS geöffnet
   z-index: 9999;
+  overflow: visible;
 
   opacity: 0;
 }
@@ -390,9 +391,9 @@ body.menu-open #experience {
   color: #fff;
 
   /* ✅ SCROLL FIX */
-  max-height: min(90vh, calc(100dvh - 24px));
-  overflow-y: auto;
-  overflow-x: hidden;
+    /* inner ist nur Rahmen/Wrapper */
+  overflow: visible;
+
 
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -404,6 +405,18 @@ body.menu-open #experience {
 }
 
 
+.about-box-scroll {
+  max-height: min(90vh, calc(100dvh - 24px));
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar { display: none; }
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 
 
 .about-box-title {
@@ -700,14 +713,16 @@ body.menu-open #experience {
 }
 
 /* Wenn der Button IN der about-box-inner steckt, absolut wissen wo */
-.about-box-inner .global-modal-close {
+/* About: Close Button an Box-Ecke außen */
+.about-box .global-modal-close.is-about {
   position: absolute;
-  right: 0;
   top: 0;
+  right: 0;
 
-  /* leicht außerhalb */
-  transform: translate(120%, -120%);
+  transform: translate(50%, -50%);
+  z-index: 100000;
 }
+
 
 
 
