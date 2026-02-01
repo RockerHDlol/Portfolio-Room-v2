@@ -1099,7 +1099,7 @@ function disableOrbitLimits() {
   controls.maxDistance = Infinity;
 }
 
-camera.position.set(7.457997013443906, 4.2664251408437535, -4.2);
+camera.position.set(7.657997013443906, 4.2664251408437535, -4.2);
 controls.target.set(5.3, 4.05, -4.55);
 controls.update();
 enableOrbitLimitsAroundCurrentView();
