@@ -11,6 +11,18 @@ import gsap from "gsap";
  * - true only after Enter + reveal finished
  */
 let interactionEnabled = false;
+let isModalOpen = false;
+let isCameraMoving = false;
+let isPortraitMode = false;
+
+// Slide state (wird später genutzt)
+let slideT = 0.5;
+
+let lastPortraitBeforeOverlay = null;
+
+let suppressPortraitSlide = false;
+
+
 
 
 // ----- Top-right menu -----
@@ -66,11 +78,25 @@ const modals = {
   contact: document.querySelector(".modal.contact"),
 };
 
+function storePortraitPoseBeforeOverlay() {
+  if (!isPortraitMode) {
+    lastPortraitBeforeOverlay = null;
+    return;
+  }
+  lastPortraitBeforeOverlay = {
+    position: camera.position.clone(),
+    target: controls.target.clone(),
+    slideT,
+  };
+}
+
 const aboutBox = document.querySelector("#aboutMeBox");
 
 function showAboutBox() {
   if (!aboutBox) return;
   hideMenuUI();
+
+  storePortraitPoseBeforeOverlay();
 
   const inner = aboutBox.querySelector(".about-box-inner") || aboutBox;
   inner.appendChild(globalCloseBtn);
@@ -132,13 +158,44 @@ function hideAboutBox() {
       globalCloseBtn.style.display = "none";
       isModalOpen = false;
 
-      controls.enableRotate = true;
-      controls.enableZoom = true;
-      controls.enablePan = false;
-      controls.enableDamping = true;
-      controls.enabled = true;
+      // WICHTIG: NICHT controls.enabled hier setzen
+      // controls.enabled = false; // <- ENTFERNEN
 
-      flyToView("home");
+      if (isPortraitMode && lastPortraitBeforeOverlay) {
+        slideT = lastPortraitBeforeOverlay.slideT ?? slideT;
+        
+        // WICHTIG: suppressPortraitSlide für die Rückflug-Animation aktivieren
+        suppressPortraitSlide = true;
+
+        flyToPose(
+          lastPortraitBeforeOverlay.position,
+          lastPortraitBeforeOverlay.target,
+          {
+            duration: 0.6,
+            ease: "power2.out",
+            onComplete: () => {
+              controls.enableRotate = false;
+              disableOrbitLimits();
+              controls.enabled = true;
+              controls.update();
+              
+              // WICHTIG: suppressPortraitSlide wieder deaktivieren
+              suppressPortraitSlide = false;
+              // ✅ Jetzt die aktuelle Slide-Position anwenden
+              applyCameraSlide(slideT);
+            },
+          }
+        );
+      } else {
+        flyToView("home", {
+          onComplete: () => {
+            controls.enableRotate = true;
+            enableOrbitLimitsAroundCurrentView();
+            controls.enabled = true;
+            controls.update();
+          },
+        });
+      }
 
       suppressHoverUntil = performance.now() + 300;
       hoverArmed = false;
@@ -565,6 +622,50 @@ if (menuPanel) {
 }
 
 
+// ===============================
+// Drag to slide (portrait only)
+// ===============================
+let slideDragging = false;
+let slideStartX = 0;
+let slideStartT = 0;
+
+// wie “schnell” slideT reagiert (kleiner = langsamer)
+const SLIDE_SENSITIVITY = 1.2;
+
+function canSlideNow(e) {
+  // nicht sliden wenn UI offen / modal / menu / loading etc.
+  if (!interactionEnabled) return false;
+  if (!isPortraitMode) return false;
+  if (isMenuOpen || isModalOpen || isCameraMoving) return false;
+  if (e?.target?.closest?.(".site-menu")) return false;
+  return true;
+}
+
+window.addEventListener("pointerdown", (e) => {
+  if (!canSlideNow(e)) return;
+  slideDragging = true;
+  slideStartX = e.clientX;
+  slideStartT = slideT;
+});
+
+window.addEventListener("pointermove", (e) => {
+  if (!slideDragging) return;
+  if (!canSlideNow(e)) return;
+
+  const dx = (e.clientX - slideStartX) / window.innerWidth;
+  const nextT = slideStartT + dx * SLIDE_SENSITIVITY;
+  applyCameraSlide(nextT);
+});
+
+window.addEventListener("pointerup", () => {
+  slideDragging = false;
+});
+
+window.addEventListener("pointercancel", () => {
+  slideDragging = false;
+});
+
+
 manager.onLoad = () => {
   loadingScreenButton.style.boxShadow = "rgba(0, 0, 0, 0.24) 0px 3px 8px";
   loadingScreenButton.textContent = "Enter!";
@@ -629,8 +730,6 @@ window.addEventListener("keydown", (e) => {
   loadingScreenButton?.click();
 });
 
-// ----- Modals -----
-let isModalOpen = false;
 
 let postsLoaded = false;
 let postsPromise = null;
@@ -643,10 +742,13 @@ postsPromise = loadPostsFromSheet()
   .finally(() => {
     postsLoaded = true;
     manager.itemEnd("posts");
-  });
+});
 
 const showModal = async (modal, modalKey = null) => {
   console.log(`Opening modal: ${modalKey}`);
+
+  storePortraitPoseBeforeOverlay();
+
   modal.style.display = "block";
   globalCloseBtn.classList.remove("is-about");
   globalCloseBtn.style.display = "grid";
@@ -696,22 +798,57 @@ const hideModal = (modal) => {
       modal.style.display = "none";
       showMenuUI();
 
-      controls.enableRotate = true;
-      controls.enableZoom = true;
-      controls.enablePan = false;
-      controls.enableDamping = true;
-      controls.enabled = true;
+      // WICHTIG: NICHT controls.enabled hier setzen - das wird in flyToPose/flyToView gemacht
+      // controls.enabled = false; // <- ENTFERNEN
 
-      flyToView("home");
+      if (isPortraitMode && lastPortraitBeforeOverlay) {
+        // ✅ Portrait: zurück zum Zustand VOR dem Öffnen (mit Animation)
+        slideT = lastPortraitBeforeOverlay.slideT ?? slideT;
+        
+        // WICHTIG: suppressPortraitSlide für die Rückflug-Animation aktivieren
+        suppressPortraitSlide = true;
 
-      suppressHoverUntil = performance.now() + 300;
-      hoverArmed = false;
-      currentIntersects = [];
-      if (currentHoveredObject) {
-        playHoverAnimation(currentHoveredObject, false);
-        currentHoveredObject = null;
+        flyToPose(
+          lastPortraitBeforeOverlay.position,
+          lastPortraitBeforeOverlay.target,
+          {
+            duration: 0.6,
+            ease: "power2.out",
+            onComplete: () => {
+              // ✅ Portrait bleibt locked
+              controls.enableRotate = false;
+              disableOrbitLimits();
+              controls.enabled = true;
+              controls.update();
+              
+              // WICHTIG: suppressPortraitSlide wieder deaktivieren
+              suppressPortraitSlide = false;
+              // ✅ Jetzt die aktuelle Slide-Position anwenden
+              applyCameraSlide(slideT);
+            },
+          }
+        );
+      } else {
+        // ✅ Landscape: normal home
+        flyToView("home", {
+          onComplete: () => {
+            controls.enableRotate = true;
+            enableOrbitLimitsAroundCurrentView();
+            controls.enabled = true;
+            controls.update();
+          },
+        });
       }
-      document.body.style.cursor = "default";
+
+      // Diese Zeilen sind redundant - sie werden in den onComplete Callbacks oben gemacht
+      // suppressHoverUntil = performance.now() + 300;
+      // hoverArmed = false;
+      // currentIntersects = [];
+      // if (currentHoveredObject) {
+      //   playHoverAnimation(currentHoveredObject, false);
+      //   currentHoveredObject = null;
+      // }
+      // document.body.style.cursor = "default";
     },
   });
 };
@@ -962,8 +1099,8 @@ function disableOrbitLimits() {
   controls.maxDistance = Infinity;
 }
 
-camera.position.set(7.457997013443906, 4.2664251408437535, -3.9566580964541194);
-controls.target.set(5.3, 4.05, -4.45);
+camera.position.set(7.457997013443906, 4.2664251408437535, -4.2);
+controls.target.set(5.3, 4.05, -4.55);
 controls.update();
 enableOrbitLimitsAroundCurrentView();
 
@@ -988,7 +1125,6 @@ const VIEWS = {
   },
 };
 
-let isCameraMoving = false;
 
 function flyToView(viewKey, { duration = 0.7, ease = "power2.out", onComplete } = {}) {
   const view = VIEWS[viewKey];
@@ -1007,17 +1143,65 @@ function flyToView(viewKey, { duration = 0.7, ease = "power2.out", onComplete } 
     onUpdate: () => controls.update(),
     onComplete: () => {
       controls.update();
-      gsap.delayedCall(0.05, enableOrbitLimitsAroundCurrentView);
-
+        
+      if (!isPortraitMode) {
+        gsap.delayedCall(0.05, enableOrbitLimitsAroundCurrentView);
+      } else {
+        disableOrbitLimits();
+        controls.enableRotate = false;
+      }
+    
       controls.enabled = true;
       isCameraMoving = false;
-
+    
       if (typeof onComplete === "function") onComplete();
     },
+
   });
 
   tl.to(camera.position, { x: view.position.x, y: view.position.y, z: view.position.z }, 0);
   tl.to(controls.target, { x: view.target.x, y: view.target.y, z: view.target.z }, 0);
+}
+
+function flyToPose(position, target, { duration = 0.55, ease = "power2.out", onComplete } = {}) {
+  isCameraMoving = true;
+  controls.enabled = false;
+
+  if (isPortraitMode) suppressPortraitSlide = true; // ✅
+
+  disableOrbitLimits();
+
+  gsap.killTweensOf(camera.position);
+  gsap.killTweensOf(controls.target);
+
+  gsap.timeline({
+    defaults: { duration, ease },
+    onUpdate: () => controls.update(),
+    onComplete: () => {
+      controls.update();
+
+      // WICHTIG: Hier muss suppressPortraitSlide nur deaktiviert werden, 
+      // wenn wir NICHT aus hideModal/hideAboutBox kommen
+      // Wir übergeben diese Logik an den Caller
+      
+      if (isPortraitMode) {
+        disableOrbitLimits();
+        controls.enableRotate = false;
+      } else {
+        enableOrbitLimitsAroundCurrentView();
+        controls.enableRotate = true;
+      }
+
+      controls.enabled = true;
+      isCameraMoving = false;
+
+      // NICHT hier: suppressPortraitSlide = false; // <- WIRD VOM CALLER GEMACHT
+
+      if (typeof onComplete === "function") onComplete();
+    },
+  })
+  .to(camera.position, { x: position.x, y: position.y, z: position.z }, 0)
+  .to(controls.target, { x: target.x, y: target.y, z: target.z }, 0);
 }
 
 window.addEventListener("resize", () => {
@@ -1029,6 +1213,9 @@ window.addEventListener("resize", () => {
 
   renderer.setSize(sizes.width, sizes.height);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  updateCameraModeByOrientation();
+
 });
 
 // ----- Hover -----
@@ -1065,6 +1252,96 @@ function playHoverAnimation(object, isHovering) {
     });
   }
 }
+
+
+// 1) Definiere Slide-Punkte (du kannst die Werte später fein-tunen)
+// Ich nehme deine HOME_VIEW als "base" und verschiebe X links/rechts.
+// ===============================
+// Portrait camera slide: 3 feste Punkte
+// ===============================
+
+// BASE = deine normale HOME View
+const SLIDE = {
+  base: {
+    position: HOME_VIEW.position.clone(),
+    target: HOME_VIEW.target.clone(),
+  },
+
+  // ✅ HIER trägst du feste Punkte ein:
+  left: {
+    position: new THREE.Vector3(7.2, 4.26, -3.75 ),
+    target:   new THREE.Vector3(5.3, 4.05, -3.65),
+  },
+
+  right: {
+    position: new THREE.Vector3(7.7, 4.26, -4.45 ),
+    target:   new THREE.Vector3(5.3, 4.05, -5.35),
+  },
+};
+
+// (5.3, 4.05, -4.45)
+
+updateCameraModeByOrientation();
+
+
+function applyCameraSlide(t) {
+  // ✅ Während Rückflug oder wenn andere Animationen laufen nicht überschreiben
+  if (suppressPortraitSlide || isCameraMoving || isModalOpen) return;
+
+  slideT = Math.max(0, Math.min(1, t));
+
+  const p = SLIDE.left.position.clone().lerp(SLIDE.right.position, slideT);
+  const tgt = SLIDE.left.target.clone().lerp(SLIDE.right.target, slideT);
+
+  camera.position.copy(p);
+  controls.target.copy(tgt);
+  controls.update();
+}
+
+
+function setPortraitMode(enabled) {
+  isPortraitMode = enabled;
+
+  if (enabled) {
+    // Portrait: kein Orbit-rotate, wir sliden
+    controls.enableRotate = false;
+    controls.enablePan = false;
+    controls.enableZoom = true;
+
+    disableOrbitLimits();
+    
+    // WICHTIG: Nur slide anwenden, wenn nicht unterdrückt
+    if (!suppressPortraitSlide) {
+      applyCameraSlide(slideT);
+    }
+
+  } else {
+    // Landscape: zurück auf BASE / HOME
+    slideT = 0.5; // optional: reset
+
+    camera.position.copy(HOME_VIEW.position);
+    controls.target.copy(HOME_VIEW.target);
+    controls.update();
+
+    controls.enableRotate = true;
+    controls.enablePan = false;
+    controls.enableZoom = true;
+
+    enableOrbitLimitsAroundCurrentView();
+  }
+}
+
+
+function updateCameraModeByOrientation() {
+  const portrait = window.matchMedia("(orientation: portrait)").matches
+    || (window.innerHeight > window.innerWidth);
+
+  // nur wenn sich der Modus wirklich ändert:
+  if (portrait !== isPortraitMode) {
+    setPortraitMode(portrait);
+  }
+}
+
 
 // ----- Render loop -----
 function render() {
