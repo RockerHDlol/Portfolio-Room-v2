@@ -572,7 +572,7 @@ body.menu-open #experience {
   outline: none !important;
 }
 
-.iframe-wrapper:hover .insta-embed {
+.iframe-wrapper:has(.insta-embed iframe:hover) .insta-embed {
   filter: brightness(0.75);
 }
 
@@ -604,7 +604,7 @@ body.menu-open #experience {
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
-.iframe-wrapper:hover .post-meta {
+.iframe-wrapper:has(.insta-embed iframe:hover) .post-meta {
   opacity: 1;
   transform: translateY(0);
 }
