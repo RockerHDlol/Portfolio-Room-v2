@@ -535,9 +535,14 @@ body.menu-open #experience {
   background: #000 !important;
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+  
+  /* Safari z-index fix für iframes */
+  isolation: isolate !important;
+  transform: translateZ(0) !important;
+  -webkit-transform: translateZ(0) !important;
 
   &:hover {
-    transform: scale(1.05);
+    transform: scale(1.05) translateZ(0);
     box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
     z-index: 50;
   }
@@ -551,6 +556,9 @@ body.menu-open #experience {
   position: absolute !important;
   inset: 0 !important;
   background: transparent !important;
+  
+  /* Safari z-index fix */
+  z-index: 1 !important;
 
   iframe {
     --ig-shift: 55px;
@@ -563,6 +571,9 @@ body.menu-open #experience {
 
     transform: translateY(calc(-1 * var(--ig-shift))) scale(1) !important; // ✅ Header hochschieben
     transform-origin: top center !important;
+    
+    /* Safari z-index fix - iframe darf nicht über overlay-elemente */
+    z-index: 1 !important;
   }
 }
 
@@ -572,7 +583,7 @@ body.menu-open #experience {
   outline: none !important;
 }
 
-.iframe-wrapper:has(.insta-embed iframe:hover) .insta-embed {
+.iframe-wrapper:hover .insta-embed {
   filter: brightness(0.75);
 }
 
@@ -600,13 +611,17 @@ body.menu-open #experience {
   pointer-events: none !important;
   
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(10px) translateZ(0);
   transition: opacity 0.25s ease, transform 0.25s ease;
+  
+  /* Safari z-index fix - force stacking context */
+  -webkit-transform: translateY(10px) translateZ(0);
+  will-change: opacity, transform;
 }
 
-.iframe-wrapper:has(.insta-embed iframe:hover) .post-meta {
+.iframe-wrapper:hover .post-meta {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) translateZ(0);
 }
 
 .post-title {
