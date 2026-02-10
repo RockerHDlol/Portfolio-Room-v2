@@ -860,8 +860,8 @@ let currentHoveredObject = null;
 
 const socialLinks = {
   YouTube: "https://www.youtube.com",
-  Instagram: "https://www.instagram.com",
-  Artstaion: "https://www.artstation.com",
+  Instagram: "https://www.instagram.com/caspar_reichl/",
+  Artstaion: "https://www.artstation.com/caspar_r",
 };
 
 const raycaster = new THREE.Raycaster();
