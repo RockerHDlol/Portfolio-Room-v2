@@ -978,14 +978,22 @@ window.addEventListener("click", (e) => {
 window.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
 
+  // 1️⃣ Menü hat Prio
   if (isMenuOpen) {
     closeMenu();
     return;
   }
 
-  if (isModalOpen) {
-    closeModal();
+  // 2️⃣ About-Me Box
+  if (aboutBox && aboutBox.style.display === "block") {
+    hideAboutBox();
     return;
+  }
+
+  // 3️⃣ Normales Modal
+  const openModal = document.querySelector(".modal[style*='display: block']");
+  if (openModal) {
+    hideModal(openModal);
   }
 });
 
@@ -1116,8 +1124,8 @@ const VIEWS = {
     target: new THREE.Vector3(5.4, 4.15, -4.18),
   },
   workCamera: {
-    position: new THREE.Vector3(5.915519, 4.019118, -5.295547),
-    target: new THREE.Vector3(5.800511, 4.022210, -5.254112),
+    position: new THREE.Vector3(5.915519, 4.019118, -5.290547),
+    target: new THREE.Vector3(5.800511, 4.022210, -5.249112),
   },
   workEvent: {
     position: new THREE.Vector3(5.573762, 4.116623, -3.628980),
