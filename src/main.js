@@ -905,9 +905,115 @@ Object.entries(textureMap).forEach(([key, paths]) => {
 
 const scene = new THREE.Scene();
 
+const dustCount = 100;
+const dustBounds = {
+  xMin: 3.2,
+  xMax: 6.8,
+  yMin: 1.4,
+  yMax: 7.2,
+  zMin: -5.8,
+  zMax: -3.1,
+};
+const dustPositions = new Float32Array(dustCount * 3);
+const dustSpeeds = new Float32Array(dustCount);
+const dustPhases = new Float32Array(dustCount);
+const dustDrifts = new Float32Array(dustCount * 2);
+const dustSizes = new Float32Array(dustCount);
+const dustOpacities = new Float32Array(dustCount);
+
+function getDustOpacity(x, z) {
+  return THREE.MathUtils.randFloat(0.01, 0.07);
+}
+
+for (let index = 0; index < dustCount; index += 1) {
+  const offset = index * 3;
+  dustPositions[offset] = THREE.MathUtils.randFloat(dustBounds.xMin, dustBounds.xMax);
+  dustPositions[offset + 1] = THREE.MathUtils.randFloat(dustBounds.yMin, dustBounds.yMax);
+  dustPositions[offset + 2] = THREE.MathUtils.randFloat(dustBounds.zMin, dustBounds.zMax);
+  dustSpeeds[index] = THREE.MathUtils.randFloat(0.012, 0.045);
+  dustPhases[index] = Math.random() * Math.PI * 2;
+  dustDrifts[index * 2] = THREE.MathUtils.randFloat(0.012, 0.045);
+  dustDrifts[index * 2 + 1] = THREE.MathUtils.randFloat(0.008, 0.035);
+  dustSizes[index] = THREE.MathUtils.randFloat(0.55, 1);
+  dustOpacities[index] = getDustOpacity(dustPositions[offset], dustPositions[offset + 2]);
+}
+
+const dustGeometry = new THREE.BufferGeometry();
+dustGeometry.setAttribute("position", new THREE.BufferAttribute(dustPositions, 3));
+dustGeometry.setAttribute("aSize", new THREE.BufferAttribute(dustSizes, 1));
+dustGeometry.setAttribute("aOpacity", new THREE.BufferAttribute(dustOpacities, 1));
+
+const dustMaterial = new THREE.ShaderMaterial({
+  uniforms: {
+    uColor: { value: new THREE.Color(0xffffff) },
+    uOpacity: { value: 1 },
+  },
+  vertexShader: `
+    attribute float aSize;
+    attribute float aOpacity;
+    varying float vOpacity;
+
+    void main() {
+      vec4 modelPosition = modelMatrix * vec4(position, 1.0);
+      vec4 viewPosition = viewMatrix * modelPosition;
+      gl_Position = projectionMatrix * viewPosition;
+      gl_PointSize = aSize * 33.0 * (1.0 / -viewPosition.z);
+      vOpacity = aOpacity;
+    }
+  `,
+  fragmentShader: `
+    uniform vec3 uColor;
+    uniform float uOpacity;
+    varying float vOpacity;
+
+    void main() {
+      float distanceFromCenter = distance(gl_PointCoord, vec2(0.5));
+      float softEdge = 1.0 - smoothstep(0.18, 0.5, distanceFromCenter);
+      if (softEdge <= 0.0) discard;
+      gl_FragColor = vec4(uColor, softEdge * vOpacity * uOpacity);
+    }
+  `,
+  sizeAttenuation: true,
+  transparent: true,
+  depthWrite: false,
+  depthTest: false,
+});
+
+const dust = new THREE.Points(dustGeometry, dustMaterial);
+dust.renderOrder = 999;
+scene.add(dust);
+
+const dustClock = new THREE.Clock();
+
+function animateDust() {
+  const delta = Math.min(dustClock.getDelta(), 0.05);
+  const elapsed = dustClock.elapsedTime;
+  const positions = dustGeometry.attributes.position.array;
+
+  for (let index = 0; index < dustCount; index += 1) {
+    const offset = index * 3;
+    const driftOffset = index * 2;
+    positions[offset + 1] -= dustSpeeds[index] * delta;
+    positions[offset] += Math.sin(elapsed * 0.45 + dustPhases[index]) * delta * dustDrifts[driftOffset];
+    positions[offset + 2] += Math.cos(elapsed * 0.35 + dustPhases[index]) * delta * dustDrifts[driftOffset + 1];
+
+    if (positions[offset + 1] < 1.25) {
+      positions[offset] = THREE.MathUtils.randFloat(dustBounds.xMin, dustBounds.xMax);
+      positions[offset + 1] = THREE.MathUtils.randFloat(6.2, dustBounds.yMax);
+      positions[offset + 2] = THREE.MathUtils.randFloat(dustBounds.zMin, dustBounds.zMax);
+      dustOpacities[index] = getDustOpacity(positions[offset], positions[offset + 2]);
+    }
+  }
+
+  dustGeometry.attributes.position.needsUpdate = true;
+  dustGeometry.attributes.aOpacity.needsUpdate = true;
+}
+
 window.addEventListener("mousemove", (e) => {
   pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
   pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  mouseCameraFollow.x = pointer.x;
+  mouseCameraFollow.y = pointer.y;
   if (performance.now() >= suppressHoverUntil) hoverArmed = true;
 });
 
@@ -1076,9 +1182,13 @@ renderer.setSize(sizes.width, sizes.height);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.03;
+controls.enableDamping = false;
+controls.dampingFactor = 0;
 controls.update();
+
+const mouseCameraFollow = { x: 0, y: 0 };
+let mouseFollowCenter = null;
+let manualOrbiting = false;
 
 const azimuthLimit = Math.PI / 30;
 const polarLimit = Math.PI / 30;
@@ -1109,6 +1219,36 @@ function enableOrbitLimitsAroundCurrentView() {
   clampOrbitAroundCurrentView();
 }
 
+function rememberMouseFollowCenter() {
+  mouseFollowCenter = {
+    azimuth: controls.getAzimuthalAngle(),
+    polar: controls.getPolarAngle(),
+  };
+}
+
+function updateMouseCameraFollow() {
+  if (
+    !interactionEnabled ||
+    isModalOpen ||
+    isMenuOpen ||
+    isCameraMoving ||
+    manualOrbiting ||
+    isPortraitMode ||
+    !mouseFollowCenter
+  ) return;
+
+  const desiredAzimuth = mouseFollowCenter.azimuth + mouseCameraFollow.x * azimuthLimit * 0.85;
+  const desiredPolar = mouseFollowCenter.polar - mouseCameraFollow.y * polarLimit * 0.85;
+  const azimuthDelta = Math.atan2(
+    Math.sin(controls.getAzimuthalAngle() - desiredAzimuth),
+    Math.cos(controls.getAzimuthalAngle() - desiredAzimuth)
+  );
+  const polarDelta = controls.getPolarAngle() - desiredPolar;
+
+  controls._rotateLeft(azimuthDelta * 0.16);
+  controls._rotateUp(polarDelta * 0.16);
+}
+
 function disableOrbitLimits() {
   controls.minPolarAngle = 0;
   controls.maxPolarAngle = Math.PI;
@@ -1122,6 +1262,20 @@ camera.position.set(7.657997013443906, 4.2664251408437535, -4.2);
 controls.target.set(5.3, 4.05, -4.55);
 controls.update();
 enableOrbitLimitsAroundCurrentView();
+rememberMouseFollowCenter();
+
+renderer.domElement.addEventListener("pointerdown", (event) => {
+  if (event.button === 0 && interactionEnabled && !isModalOpen && !isMenuOpen) {
+    manualOrbiting = true;
+  }
+});
+
+window.addEventListener("pointerup", () => {
+  if (!manualOrbiting) return;
+  manualOrbiting = false;
+  controls.update();
+  rememberMouseFollowCenter();
+});
 
 const HOME_VIEW = {
   position: camera.position.clone(),
@@ -1162,6 +1316,7 @@ function flyToView(viewKey, { duration = 0.7, ease = "power2.out", onComplete } 
     onUpdate: () => controls.update(),
     onComplete: () => {
       controls.update();
+      rememberMouseFollowCenter();
         
       if (!isPortraitMode) {
         gsap.delayedCall(0.05, enableOrbitLimitsAroundCurrentView);
@@ -1198,6 +1353,7 @@ function flyToPose(position, target, { duration = 0.55, ease = "power2.out", onC
     onUpdate: () => controls.update(),
     onComplete: () => {
       controls.update();
+      rememberMouseFollowCenter();
 
       // WICHTIG: Hier muss suppressPortraitSlide nur deaktiviert werden, 
       // wenn wir NICHT aus hideModal/hideAboutBox kommen
@@ -1270,6 +1426,104 @@ function playHoverAnimation(object, isHovering) {
       ease: "bounce.out(1.8)",
     });
   }
+}
+
+let focusedPointerObject = null;
+let pendingPointerObject = null;
+let isPointerFocusFadingOut = false;
+const dimmedMaterials = [];
+
+function applyPointerFocus(object) {
+  focusedPointerObject = object;
+
+  scene.traverse((child) => {
+    if (!child.isMesh || child === object) return;
+
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+    const dimmed = materials.map((material) => {
+      const copy = material.clone();
+      const targetColor = copy.color?.clone().multiplyScalar(0.6);
+
+      if (targetColor) {
+        gsap.to(copy.color, {
+          r: targetColor.r,
+          g: targetColor.g,
+          b: targetColor.b,
+          duration: 0.35,
+          ease: "power2.out",
+        });
+      }
+      return copy;
+    });
+
+    dimmedMaterials.push({ mesh: child, material: child.material });
+    child.material = Array.isArray(child.material) ? dimmed : dimmed[0];
+  });
+}
+
+function clearPointerFocus() {
+  if (isPointerFocusFadingOut || dimmedMaterials.length === 0) return;
+
+  focusedPointerObject = null;
+  isPointerFocusFadingOut = true;
+  const materialsToRestore = dimmedMaterials.splice(0);
+  let remaining = materialsToRestore.length;
+
+  for (const { mesh, material } of materialsToRestore) {
+    const copies = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    const originals = Array.isArray(material) ? material : [material];
+    let hasAnimatedColor = false;
+
+    copies.forEach((copy, index) => {
+      const originalColor = originals[index]?.color;
+      if (!copy.color || !originalColor) {
+        return;
+      }
+
+      hasAnimatedColor = true;
+      gsap.to(copy.color, {
+        r: originalColor.r,
+        g: originalColor.g,
+        b: originalColor.b,
+        duration: 0.35,
+        ease: "power2.out",
+        onComplete: () => {
+          if (--remaining === 0) finishPointerFocusFade(materialsToRestore);
+        },
+      });
+    });
+
+    if (!hasAnimatedColor && --remaining === 0) {
+      finishPointerFocusFade(materialsToRestore);
+    }
+  }
+}
+
+function finishPointerFocusFade(materialsToRestore) {
+  for (const { mesh, material } of materialsToRestore) {
+    if (mesh.material !== material && Array.isArray(mesh.material)) {
+      mesh.material = material;
+    } else if (mesh.material !== material) {
+      mesh.material = material;
+    }
+  }
+
+  isPointerFocusFadingOut = false;
+  const nextObject = pendingPointerObject;
+  pendingPointerObject = null;
+  if (nextObject) applyPointerFocus(nextObject);
+}
+
+function updatePointerFocus(object) {
+  if (object === focusedPointerObject || object === pendingPointerObject) return;
+
+  pendingPointerObject = object;
+  if (!isPointerFocusFadingOut && dimmedMaterials.length === 0) {
+    pendingPointerObject = null;
+    if (object) applyPointerFocus(object);
+    return;
+  }
+  clearPointerFocus();
 }
 
 
@@ -1364,6 +1618,8 @@ function updateCameraModeByOrientation() {
 
 // ----- Render loop -----
 function render() {
+  animateDust();
+  updateMouseCameraFollow();
   controls.update();
 
     // console.log(
@@ -1389,6 +1645,7 @@ function render() {
       playHoverAnimation(currentHoveredObject, false);
       currentHoveredObject = null;
     }
+    clearPointerFocus();
     document.body.style.cursor = "default";
   } else {
     raycaster.setFromCamera(pointer, camera);
@@ -1405,12 +1662,15 @@ function render() {
         }
       }
 
-      document.body.style.cursor = obj.name.includes("Pointer") ? "pointer" : "default";
+      const isPointer = obj.name.includes("Pointer");
+      updatePointerFocus(isPointer ? obj : null);
+      document.body.style.cursor = isPointer ? "pointer" : "default";
     } else {
       if (currentHoveredObject) {
         playHoverAnimation(currentHoveredObject, false);
         currentHoveredObject = null;
       }
+      clearPointerFocus();
       document.body.style.cursor = "default";
     }
   }
