@@ -329,7 +329,7 @@ function renderInstagramEmbeds(modalElement, modalKey) {
 
     const cleanRatio = String(aspectRatio || "4/5").replace(/\s+/g, "");
     const ratioParts = cleanRatio.split("/").map((s) => parseFloat(s.trim()));
-    const isPortraitReel = ratioParts[0] === 9 && ratioParts[1] === 15.75;
+    const isPortraitReel = ratioParts[0] === 9 && ratioParts[1] === 15.5;
     wrapper.style.aspectRatio = cleanRatio;
     wrapper.dataset.aspectRatio = cleanRatio;
 

@@ -627,7 +627,7 @@ body.menu-open #experience {
 }
 
 .insta-embed--portrait-reel iframe {
-  transform: translateY(45px) scale(1.41) !important;
+  transform: translateY(clamp(35px, 2.8vw, 60px)) scale(1.41) !important;
   transform-origin: center center !important;
 }
 
