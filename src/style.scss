@@ -332,7 +332,7 @@ body.menu-open #experience {
 // ========================================
 
 .loading-screen {
-  pointer-events: none;
+  pointer-events: auto;
   display: grid;
   place-items: center;
   padding: 24px;
@@ -428,12 +428,12 @@ body.menu-open #experience {
 
 .about-box-inner {
   position: relative;
-  background: rgba(0, 0, 0, 0.90);
-  border: max(0.25vw, 5px) solid rgba(255, 255, 255, 0.12);
+  isolation: isolate;
+  background: transparent;
+  border: 0;
   border-radius: max(1vw, 20px);
 
   padding: clamp(16px, 2.2vw, 28px);
-  backdrop-filter: blur(10px);
 
   color: #fff;
 
@@ -463,6 +463,32 @@ body.menu-open #experience {
   &::-webkit-scrollbar { display: none; }
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+.about-box-inner::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -30% -22%;
+  border-radius: inherit;
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(
+    ellipse at center,
+    #000 38%,
+    rgba(0, 0, 0, 0.75) 58%,
+    rgba(0, 0, 0, 0.18) 72%,
+    transparent 82%
+  );
+  mask-image: radial-gradient(
+    ellipse at center,
+    #000 38%,
+    rgba(0, 0, 0, 0.75) 58%,
+    rgba(0, 0, 0, 0.18) 72%,
+    transparent 82%
+  );
 }
 
 

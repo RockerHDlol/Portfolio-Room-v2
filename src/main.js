@@ -501,6 +501,7 @@ function playReveal() {
     duration: 1.4,
     ease: "power2.inOut",
   }).eventCallback("onComplete", () => {
+    loadingScreen.style.pointerEvents = "none";
     playIntroAnimtion();
     loadingScreen.remove();
     revealHamburgerMenu();
@@ -1715,6 +1716,7 @@ function render() {
   if (performance.now() >= suppressHoverUntil) hoverArmed = true;
 
   if (
+    !interactionEnabled ||
     isModalOpen ||
     isCameraMoving ||
     !hoverArmed ||
