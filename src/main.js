@@ -542,7 +542,7 @@ function hideMenuUI() {
     ease: "power1.out",
     onComplete: () => {
       menuRoot.style.pointerEvents = "none";
-      menuRoot.style.display = "none";
+      // menuRoot.style.display = "none";
     },
   });
 }
