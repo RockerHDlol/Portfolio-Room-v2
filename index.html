@@ -31,10 +31,14 @@
 
     
 
-    <div class="loading-screen">
-      <button class="loading-screen-button">
-        Loading ...
-      </button>
+    <div class="loading-screen" aria-label="Loading">
+      <div class="loading-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <svg class="loading-progress-ring" viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="loading-progress-track" cx="60" cy="60" r="52" />
+          <circle class="loading-progress-value" cx="60" cy="60" r="52" />
+        </svg>
+        <span class="loading-progress-number">0%</span>
+      </div>
     </div>
 
     <div class="site-menu" aria-hidden="true">

@@ -8,7 +8,7 @@ import gsap from "gsap";
 /**
  * ✅ Interaction lock:
  * - false while loading screen is up
- * - true only after Enter + reveal finished
+ * - true only after loading + reveal finished
  */
 let interactionEnabled = false;
 let isModalOpen = false;
@@ -222,11 +222,13 @@ globalCloseBtn.addEventListener("click", () => {
     return;
   }
 
-  const openModal = document.querySelector(".modal[style*='display: block']");
+  const openModal = document.querySelector(".modal.is-open");
   if (openModal) hideModal(openModal);
 });
 
 let POSTS_BY_CATEGORY = { workPC: [], workCamera: [], workEvent: [] };
+const renderedInstagramModals = new Set();
+const instagramLayoutHandlers = new Map();
 
 async function loadPostsFromSheet() {
   const r = await fetch(`/api/posts?ts=${Date.now()}`);
@@ -263,10 +265,14 @@ function escapeHtml(str = "") {
 }
 
 function renderInstagramEmbeds(modalElement, modalKey) {
+  if (renderedInstagramModals.has(modalKey)) {
+    return Promise.resolve();
+  }
+
   const contentEl = modalElement.querySelector(".modal-content");
   if (!contentEl) {
     console.error("No .modal-content found in modal");
-    return;
+    return Promise.resolve();
   }
 
   if (masonryResizeHandler) {
@@ -286,13 +292,14 @@ function renderInstagramEmbeds(modalElement, modalKey) {
   if (items.length === 0) {
     contentEl.innerHTML =
       '<p style="color: white; padding: 20px;">No posts found</p>';
-    return;
+    return Promise.resolve();
   }
 
   const container = document.createElement("div");
   container.className = "insta-masonry";
   contentEl.innerHTML = "";
   contentEl.appendChild(container);
+  renderedInstagramModals.add(modalKey);
 
   const postElements = items.map(({ postId, name, subText, date, aspectRatio }) => {
     const wrapper = document.createElement("div");
@@ -338,7 +345,6 @@ function renderInstagramEmbeds(modalElement, modalKey) {
       modalElement.getBoundingClientRect().width;
 
     if (!containerWidth) {
-      requestAnimationFrame(layoutMasonry);
       return;
     }
 
@@ -374,48 +380,62 @@ function renderInstagramEmbeds(modalElement, modalKey) {
     });
   }
 
+  instagramLayoutHandlers.set(modalKey, layoutMasonry);
+
   requestAnimationFrame(() => {
     layoutMasonry();
     setTimeout(layoutMasonry, 300);
   });
 
   resizeTimeout = setTimeout(layoutMasonry, 150);
+
+  const iframeLoads = [...container.querySelectorAll("iframe")].map((iframe) => {
+    return new Promise((resolve) => {
+      const timeout = setTimeout(resolve, 12000);
+      iframe.addEventListener("load", () => {
+        clearTimeout(timeout);
+        resolve();
+      }, { once: true });
+    });
+  });
+
+  return Promise.all(iframeLoads);
 }
 
-let touchHappened = false;
-
 const manager = new THREE.LoadingManager();
+manager.itemStart("instagram-preload");
 
 const loadingScreen = document.querySelector(".loading-screen");
-const loadingScreenButton = document.querySelector(".loading-screen-button");
+const loadingProgress = document.querySelector(".loading-progress");
+const loadingProgressValue = document.querySelector(".loading-progress-value");
+const loadingProgressNumber = document.querySelector(".loading-progress-number");
+const loadingProgressCircumference = 2 * Math.PI * 52;
 
-loadingScreenButton.style.cursor = "not-allowed";
-loadingScreenButton.textContent = "Loading ...";
+function updateLoadingProgress(loaded, total) {
+  const progress = total ? Math.min(100, Math.round((loaded / total) * 100)) : 0;
+  loadingProgressValue.style.strokeDashoffset =
+    loadingProgressCircumference * (1 - progress / 100);
+  loadingProgress.setAttribute("aria-valuenow", String(progress));
+  loadingProgressNumber.textContent = `${progress}%`;
+}
+
+updateLoadingProgress(0, 1);
 
 function playReveal() {
   const tl = gsap.timeline();
 
   tl.to(loadingScreen, {
-    scale: 0.5,
-    duration: 0.8,
-    ease: "back.in(1.8)",
-  }).to(
-    loadingScreen,
-    {
-      y: "200vh",
-      transform: "perspective(1000px) rotateX(45deg) rotateY(-35deg)",
-      duration: 1.2,
-      ease: "back.in(1.8)",
-      onComplete: () => {
-        playIntroAnimtion();
-        loadingScreen.remove();
-        revealHamburgerMenu();
-        interactionEnabled = true;
-        canvas.style.opacity = "1";
-      },
-    },
-    "-=0.1"
-  );
+    opacity: 0,
+    backdropFilter: "blur(0px)",
+    webkitBackdropFilter: "blur(0px)",
+    duration: 1.4,
+    ease: "power2.inOut",
+  }).eventCallback("onComplete", () => {
+    playIntroAnimtion();
+    loadingScreen.remove();
+    revealHamburgerMenu();
+    interactionEnabled = true;
+  });
 }
 
 function revealHamburgerMenu() {
@@ -666,52 +686,14 @@ window.addEventListener("pointercancel", () => {
 });
 
 
+manager.onProgress = (url, loaded, total) => {
+  updateLoadingProgress(loaded, total);
+};
+
 manager.onLoad = () => {
-  loadingScreenButton.style.boxShadow = "rgba(0, 0, 0, 0.24) 0px 3px 8px";
-  loadingScreenButton.textContent = "Enter!";
-  loadingScreenButton.style.cursor = "pointer";
-  loadingScreenButton.style.transition =
-    "transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)";
-
-  let isDisabled = false;
-
-  const enter = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (isDisabled) return;
-    isDisabled = true;
-
-    loadingScreenButton.style.boxShadow = "none";
-    loadingScreenButton.textContent = "Welcome!";
-    loadingScreen.style.backgroundColor = "#4b000aff";
-
-    interactionEnabled = false;
-
-    playReveal();
-  };
-
-  loadingScreenButton.addEventListener("mouseenter", () => {
-    loadingScreenButton.style.transform = "scale(1.3)";
-  });
-
-  loadingScreenButton.addEventListener("mouseleave", () => {
-    loadingScreenButton.style.transform = "none";
-  });
-
-  loadingScreenButton.addEventListener("click", (e) => {
-    if (touchHappened) return;
-    enter(e);
-  });
-
-  loadingScreenButton.addEventListener(
-    "touchend",
-    (e) => {
-      touchHappened = true;
-      enter(e);
-    },
-    { passive: false }
-  );
+  updateLoadingProgress(1, 1);
+  interactionEnabled = false;
+  playReveal();
 };
 
 window.addEventListener("keydown", (e) => {
@@ -727,7 +709,6 @@ window.addEventListener("keydown", (e) => {
 
   if (!isLoadingVisible) return;
 
-  loadingScreenButton?.click();
 });
 
 
@@ -744,12 +725,41 @@ postsPromise = loadPostsFromSheet()
     manager.itemEnd("posts");
 });
 
+postsPromise
+  .then(async () => {
+    const preloadPromises = [];
+
+    for (const modalKey of ["workPC", "workCamera", "workEvent"]) {
+      const modal = modals[modalKey];
+      if (!modal) continue;
+
+      modal.style.display = "block";
+      modal.style.visibility = "hidden";
+      modal.style.pointerEvents = "none";
+      modal.style.opacity = "0";
+      preloadPromises.push(renderInstagramEmbeds(modal, modalKey));
+    }
+
+    await Promise.all(preloadPromises);
+    // Give Safari time to finish iframe scripts and layout before Enter is enabled.
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  })
+  .catch((err) => {
+    console.error("Instagram preload failed:", err);
+  })
+  .finally(() => {
+    manager.itemEnd("instagram-preload");
+  });
+
 const showModal = async (modal, modalKey = null) => {
   console.log(`Opening modal: ${modalKey}`);
 
   storePortraitPoseBeforeOverlay();
 
   modal.style.display = "block";
+  modal.style.visibility = "visible";
+  modal.style.pointerEvents = "auto";
+  modal.classList.add("is-open");
   globalCloseBtn.classList.remove("is-about");
   globalCloseBtn.style.display = "grid";
 
@@ -795,7 +805,9 @@ const hideModal = (modal) => {
     duration: 0.35,
     onComplete: () => {
       globalCloseBtn.style.display = "none";
-      modal.style.display = "none";
+      modal.style.visibility = "hidden";
+      modal.style.pointerEvents = "none";
+      modal.classList.remove("is-open");
       showMenuUI();
 
       // WICHTIG: NICHT controls.enabled hier setzen - das wird in flyToPose/flyToView gemacht
@@ -894,7 +906,6 @@ Object.entries(textureMap).forEach(([key, paths]) => {
 const scene = new THREE.Scene();
 
 window.addEventListener("mousemove", (e) => {
-  touchHappened = false;
   pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
   pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
   if (performance.now() >= suppressHoverUntil) hoverArmed = true;
@@ -991,7 +1002,7 @@ window.addEventListener("keydown", (e) => {
   }
 
   // 3️⃣ Normales Modal
-  const openModal = document.querySelector(".modal[style*='display: block']");
+  const openModal = document.querySelector(".modal.is-open");
   if (openModal) {
     hideModal(openModal);
   }
