@@ -51,7 +51,7 @@ export default async function handler(req, res) {
 
       for (const category of categories) {
         items.push({
-          category,     // "workPC"
+          category,     // "Live", "Post" oder "Film"
           postId,       // Instagram post ID or YouTube video ID
           type,         // "instagram" or "youtube"
           name,         // Titel

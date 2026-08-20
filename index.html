@@ -50,9 +50,9 @@
   <div class="menu-backdrop" id="menuBackdrop" hidden></div>
 
   <nav class="menu-panel" id="siteMenuPanel" hidden>
-    <button class="menu-link menu-link--primary" type="button" data-action="view" data-view="workEvent">EVENT</button>
-    <button class="menu-link menu-link--primary" type="button" data-action="view" data-view="workPC">3D</button>
-    <button class="menu-link menu-link--primary" type="button" data-action="view" data-view="workCamera">CAMERA</button>
+    <button class="menu-link menu-link--primary" type="button" data-action="view" data-view="live">LIVE</button>
+    <button class="menu-link menu-link--primary" type="button" data-action="view" data-view="post">POST</button>
+    <button class="menu-link menu-link--primary" type="button" data-action="view" data-view="film">FILM</button>
 
     <button
       class="menu-link menu-link--secondary"
@@ -61,28 +61,35 @@
       About Me
     </button>
 
-    <a class="menu-link menu-link--secondary" href="https://www.youtube.com" target="_blank" rel="noopener noreferrer">YouTube</a>
-    <a class="menu-link menu-link--secondary" href="https://www.instagram.com" target="_blank" rel="noopener noreferrer">Instagram</a>
-    <a class="menu-link menu-link--secondary" href="https://www.artstation.com" target="_blank" rel="noopener noreferrer">Artstation</a>
+    <button
+      class="menu-link menu-link--secondary"
+      type="button"
+      data-action="get-in-touch">
+      Get in touch
+    </button>
+
+    <a class="menu-link menu-link--secondary menu-link--social" href="https://www.youtube.com" target="_blank" rel="noopener noreferrer">YouTube</a>
+    <a class="menu-link menu-link--secondary menu-link--social" href="https://www.instagram.com" target="_blank" rel="noopener noreferrer">Instagram</a>
+    <a class="menu-link menu-link--secondary menu-link--social" href="https://www.artstation.com" target="_blank" rel="noopener noreferrer">Artstation</a>
   </nav>
   </div>
   
   <div id="app"></div>
 
 
-    <div class="workPC modal">
+    <div class="post modal">
       <h1 class="modal-title"></h1>
-      <div class="modal-content" data-modal="workPC"></div>
+      <div class="modal-content" data-modal="post"></div>
     </div>
 
-    <div class="workCamera modal">
+    <div class="film modal">
       <h1 class="modal-title"></h1>
-      <div class="modal-content" data-modal="workCamera"></div>
+      <div class="modal-content" data-modal="film"></div>
     </div>
 
-    <div class="workEvent modal">
+    <div class="live modal">
       <h1 class="modal-title"></h1>
-      <div class="modal-content" data-modal="workEvent"></div>
+      <div class="modal-content" data-modal="live"></div>
     </div>
 
     <div id="aboutMeBox" class="about-box" aria-hidden="true">
@@ -111,8 +118,44 @@
 </div>
 
 
+    <div id="getInTouchBox" class="about-box" aria-hidden="true">
+  <div class="about-box-inner">
+    <div class="about-box-scroll">
+      <h1 class="about-box-title">GET IN TOUCH</h1>
+
+      <p>I would love to hear from you.</p>
+
+      <form
+        id="contactForm"
+        class="contact-form"
+        action="https://formsubmit.co/ajax/9d1cbe7115ae826367cc252f082aeb74"
+        method="POST">
+        <input type="hidden" name="_subject" value="New portfolio contact request">
+        <input type="hidden" name="_template" value="table">
+        <input type="hidden" name="_captcha" value="false">
+
+        <label for="contactName">Name</label>
+        <input id="contactName" name="name" type="text" autocomplete="name" required>
+
+        <label for="contactEmail">Email</label>
+        <input id="contactEmail" name="email" type="email" autocomplete="email" required>
+
+        <label for="contactMessage">Nachricht</label>
+        <textarea id="contactMessage" name="message" rows="5" required></textarea>
+
+        <button type="submit">Nachricht senden</button>
+        <p id="contactFormStatus" class="contact-form-status" role="status" aria-live="polite"></p>
+      </form>
+
+      <p>Instagram: <a href="https://www.instagram.com/caspar_reichl/" target="_blank" rel="noopener noreferrer">@caspar_reichl</a></p>
+    </div>
+  </div>
+</div>
+
+
     <div class="contact modal">
-      <h1 class="modal-title">Email und Insta idk</h1>
+      <h1 class="modal-title">GET IN TOUCH</h1>
+      <p>Mail: <a href="mailto:cre04@icloud.com">cre04@icloud.com</a></p>
     </div>
 
     <div id="experience">

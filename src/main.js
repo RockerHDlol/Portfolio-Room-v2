@@ -72,9 +72,9 @@ let masonryResizeHandler = null;
 let resizeTimeout = null;
 
 const modals = {
-  workPC: document.querySelector(".modal.workPC"),
-  workCamera: document.querySelector(".modal.workCamera"),
-  workEvent: document.querySelector(".modal.workEvent"),
+  post: document.querySelector(".modal.post"),
+  film: document.querySelector(".modal.film"),
+  live: document.querySelector(".modal.live"),
   contact: document.querySelector(".modal.contact"),
 };
 
@@ -91,18 +91,49 @@ function storePortraitPoseBeforeOverlay() {
 }
 
 const aboutBox = document.querySelector("#aboutMeBox");
+const getInTouchBox = document.querySelector("#getInTouchBox");
+const contactForm = document.querySelector("#contactForm");
+const contactFormStatus = document.querySelector("#contactFormStatus");
 
-function showAboutBox() {
-  if (!aboutBox) return;
+if (contactForm) {
+  contactForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const submitButton = contactForm.querySelector("button[type='submit']");
+    submitButton.disabled = true;
+    contactFormStatus.textContent = "Wird gesendet...";
+
+    try {
+      const response = await fetch(contactForm.action, {
+        method: "POST",
+        body: new FormData(contactForm),
+        headers: { Accept: "application/json" },
+      });
+
+      if (!response.ok) throw new Error("Contact form request failed");
+
+      contactForm.reset();
+      contactFormStatus.textContent = "Danke, deine Nachricht wurde gesendet.";
+    } catch (error) {
+      console.error(error);
+      contactFormStatus.textContent = "Das Senden ist fehlgeschlagen. Bitte versuche es erneut.";
+    } finally {
+      submitButton.disabled = false;
+    }
+  });
+}
+
+function showAboutBox(box = aboutBox) {
+  if (!box) return;
   hideMenuUI();
 
   storePortraitPoseBeforeOverlay();
 
-  const inner = aboutBox.querySelector(".about-box-inner") || aboutBox;
+  const inner = box.querySelector(".about-box-inner") || box;
   inner.appendChild(globalCloseBtn);
 
-  aboutBox.style.display = "block";
-  aboutBox.setAttribute("aria-hidden", "false");
+  box.style.display = "block";
+  box.setAttribute("aria-hidden", "false");
 
   globalCloseBtn.classList.add("is-about");
   globalCloseBtn.style.display = "grid";
@@ -122,10 +153,10 @@ function showAboutBox() {
   document.body.style.cursor = "default";
   currentIntersects = [];
 
-  gsap.killTweensOf(aboutBox);
+  gsap.killTweensOf(box);
   gsap.killTweensOf(inner);
 
-  gsap.set(aboutBox, { opacity: 1 });
+  gsap.set(box, { opacity: 1 });
   gsap.fromTo(
     inner,
     { opacity: 0, y: 10 },
@@ -133,15 +164,15 @@ function showAboutBox() {
   );
 }
 
-function hideAboutBox() {
-  if (!aboutBox) return;
+function hideAboutBox(box = aboutBox) {
+  if (!box) return;
   showMenuUI();
   globalCloseBtn.classList.remove("is-about");
   globalCloseBtn.style.display = "none";
 
-  const inner = aboutBox.querySelector(".about-box-inner") || aboutBox;
+  const inner = box.querySelector(".about-box-inner") || box;
 
-  gsap.killTweensOf(aboutBox);
+  gsap.killTweensOf(box);
   gsap.killTweensOf(inner);
 
   gsap.to(inner, {
@@ -151,8 +182,8 @@ function hideAboutBox() {
     ease: "power2.in",
     onComplete: () => {
       document.body.appendChild(globalCloseBtn);
-      aboutBox.style.display = "none";
-      aboutBox.setAttribute("aria-hidden", "true");
+      box.style.display = "none";
+      box.setAttribute("aria-hidden", "true");
 
       globalCloseBtn.classList.remove("is-about");
       globalCloseBtn.style.display = "none";
@@ -217,8 +248,9 @@ document.body.appendChild(globalCloseBtn);
 globalCloseBtn.style.display = "none";
 
 globalCloseBtn.addEventListener("click", () => {
-  if (aboutBox && aboutBox.style.display === "block") {
-    hideAboutBox();
+  const openInfoBox = document.querySelector(".about-box[aria-hidden='false']");
+  if (openInfoBox) {
+    hideAboutBox(openInfoBox);
     return;
   }
 
@@ -226,7 +258,7 @@ globalCloseBtn.addEventListener("click", () => {
   if (openModal) hideModal(openModal);
 });
 
-let POSTS_BY_CATEGORY = { workPC: [], workCamera: [], workEvent: [] };
+let POSTS_BY_CATEGORY = { post: [], film: [], live: [] };
 const renderedInstagramModals = new Set();
 const instagramLayoutHandlers = new Map();
 
@@ -234,12 +266,15 @@ async function loadPostsFromSheet() {
   const r = await fetch(`/api/posts?ts=${Date.now()}`);
   const data = await r.json();
 
-  POSTS_BY_CATEGORY = { workPC: [], workCamera: [], workEvent: [] };
+  POSTS_BY_CATEGORY = { post: [], film: [], live: [] };
 
   for (const item of data.items || []) {
     if (!item?.category || !item?.postId) continue;
 
-    (POSTS_BY_CATEGORY[item.category] ??= []).push({
+    const category = String(item.category).toLowerCase();
+    if (!POSTS_BY_CATEGORY[category]) continue;
+
+    POSTS_BY_CATEGORY[category].push({
       postId: item.postId,
       type: String(item.type ?? "instagram").toLowerCase(),
       name: item.name ?? item.Name ?? "",
@@ -650,6 +685,7 @@ if (menuPanel) {
   menuPanel.addEventListener("click", (e) => {
     const viewBtn = e.target.closest("[data-action='view']");
     const aboutBtn = e.target.closest("[data-action='about']");
+    const getInTouchBtn = e.target.closest("[data-action='get-in-touch']");
 
     if (aboutBtn) {
       closeMenu();
@@ -658,20 +694,27 @@ if (menuPanel) {
       return;
     }
 
+    if (getInTouchBtn) {
+      closeMenu();
+      hideMenuUI();
+      showAboutBox(getInTouchBox);
+      return;
+    }
+
     if (!viewBtn) return;
 
     const view = viewBtn.getAttribute("data-view");
     closeMenu();
 
-    if (view === "workPC") {
+    if (view === "post") {
       hideMenuUI();
-      flyToView("workPC", { onComplete: () => showModal(modals.workPC, "workPC") });
-    } else if (view === "workCamera") {
+      flyToView("post", { onComplete: () => showModal(modals.post, "post") });
+    } else if (view === "film") {
       hideMenuUI();
-      flyToView("workCamera", { onComplete: () => showModal(modals.workCamera, "workCamera") });
-    } else if (view === "workEvent") {
+      flyToView("film", { onComplete: () => showModal(modals.film, "film") });
+    } else if (view === "live") {
       hideMenuUI();
-      flyToView("workEvent", { onComplete: () => showModal(modals.workEvent, "workEvent") });
+      flyToView("live", { onComplete: () => showModal(modals.live, "live") });
     }
   });
 }
@@ -764,7 +807,7 @@ postsPromise
   .then(async () => {
     const preloadPromises = [];
 
-    for (const modalKey of ["workPC", "workCamera", "workEvent"]) {
+    for (const modalKey of ["post", "film", "live"]) {
       const modal = modals[modalKey];
       if (!modal) continue;
 
@@ -813,7 +856,7 @@ const showModal = async (modal, modalKey = null) => {
   document.body.style.cursor = "default";
   currentIntersects = [];
 
-  if (modalKey && ["workPC", "workCamera", "workEvent"].includes(modalKey)) {
+  if (modalKey && ["post", "film", "live"].includes(modalKey)) {
     renderInstagramEmbeds(modal, modalKey);
   }
 
@@ -1106,13 +1149,13 @@ function handleRaycasterInteraction() {
 
     if (object.name.includes("workPC")) {
       hideMenuUI();
-      flyToView("workPC", { onComplete: () => showModal(modals.workPC, "workPC") });
+      flyToView("post", { onComplete: () => showModal(modals.post, "post") });
     } else if (object.name.includes("workCamera")) {
       hideMenuUI();
-      flyToView("workCamera", { onComplete: () => showModal(modals.workCamera, "workCamera") });
+      flyToView("film", { onComplete: () => showModal(modals.film, "film") });
     } else if (object.name.includes("workEvent")) {
       hideMenuUI();
-      flyToView("workEvent", { onComplete: () => showModal(modals.workEvent, "workEvent") });
+      flyToView("live", { onComplete: () => showModal(modals.live, "live") });
     } else if (object.name.includes("aboutMe")) {
       hideMenuUI();
       showAboutBox();
@@ -1137,8 +1180,9 @@ window.addEventListener("keydown", (e) => {
   }
 
   // 2️⃣ About-Me Box
-  if (aboutBox && aboutBox.style.display === "block") {
-    hideAboutBox();
+  const openInfoBox = document.querySelector(".about-box[aria-hidden='false']");
+  if (openInfoBox) {
+    hideAboutBox(openInfoBox);
     return;
   }
 
@@ -1319,15 +1363,15 @@ const HOME_VIEW = {
 
 const VIEWS = {
   home: HOME_VIEW,
-  workPC: {
+  post: {
     position: new THREE.Vector3(6.011918667226149, 4.165424262115528, -4.151384665960448),
     target: new THREE.Vector3(5.4, 4.15, -4.18),
   },
-  workCamera: {
+  film: {
     position: new THREE.Vector3(5.915519, 4.019118, -5.290547),
     target: new THREE.Vector3(5.800511, 4.022210, -5.249112),
   },
-  workEvent: {
+  live: {
     position: new THREE.Vector3(5.573762, 4.116623, -3.628980),
     target: new THREE.Vector3(5.241140, 4.008493, -3.582967),
   },

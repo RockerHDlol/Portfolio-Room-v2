@@ -248,7 +248,7 @@
   cursor: pointer;
 
   color: rgba(255, 255, 255, 0.95);
-  padding: 10px 6px;
+  padding: 0px 6px;
   border-radius: 12px;
   text-decoration: none;
   justify-content: flex-end !important;
@@ -278,6 +278,19 @@
   font-size: max(1.5vw, 20px);
   font-weight: 500;
   opacity: 0.9;
+}
+
+.menu-link--primary + .menu-link--secondary,
+.menu-link--secondary + .menu-link--social {
+  margin-top: 28px;
+}
+
+.menu-link--social {
+  font-size: max(1.1vw, 16px);
+}
+
+.menu-link--social + .menu-link--social {
+  margin-top: 10px;
 }
 
 // ========================================
@@ -466,6 +479,58 @@ body.menu-open #experience {
   line-height: 1.55;
   opacity: 1;
   margin-top: 10px;
+}
+
+.contact-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.contact-form label {
+  font-size: max(0.85vw, 15px);
+  margin-top: 8px;
+}
+
+.contact-form input,
+.contact-form textarea {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font: inherit;
+  resize: vertical;
+}
+
+.contact-form input:focus,
+.contact-form textarea:focus {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 2px;
+}
+
+.contact-form button {
+  margin-top: 12px;
+  border: 0;
+  border-radius: 8px;
+  padding: 11px 14px;
+  background: #fff;
+  color: #1d1717;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.contact-form button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.contact-form-status {
+  min-height: 1.55em;
+  margin-top: 8px !important;
+  font-size: max(0.8vw, 14px) !important;
 }
 
 
