@@ -34,6 +34,8 @@ export default async function handler(req, res) {
       const postId = row[idx["PostID"]] ?? "";
       if (!postId) continue;
 
+      const type = String(row[idx["Type"]] ?? "instagram").toLowerCase().trim();
+
       const categoryRaw = row[idx["Category"]] ?? "";
       const categories = String(categoryRaw)
         .split(",")
@@ -50,7 +52,8 @@ export default async function handler(req, res) {
       for (const category of categories) {
         items.push({
           category,     // "workPC"
-          postId,       // Instagram ID
+          postId,       // Instagram post ID or YouTube video ID
+          type,         // "instagram" or "youtube"
           name,         // Titel
           subText,      // Untertitel
           date,         // Datum

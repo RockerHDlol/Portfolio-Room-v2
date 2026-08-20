@@ -241,6 +241,7 @@ async function loadPostsFromSheet() {
 
     (POSTS_BY_CATEGORY[item.category] ??= []).push({
       postId: item.postId,
+      type: String(item.type ?? "instagram").toLowerCase(),
       name: item.name ?? item.Name ?? "",
       subText: item.subText ?? item.SubText ?? "",
       date: item.date ?? item.Date ?? "",
@@ -262,6 +263,26 @@ function escapeHtml(str = "") {
     '"': "&quot;",
     "'": "&#039;",
   }[m]));
+}
+
+function getYoutubeEmbedUrl(videoId) {
+  const value = String(videoId || "").trim();
+
+  try {
+    const url = new URL(value);
+    if (url.hostname.includes("youtu.be")) {
+      return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(url.pathname.slice(1))}`;
+    }
+
+    if (url.hostname.includes("youtube.com")) {
+      const id = url.searchParams.get("v") || url.pathname.split("/").pop();
+      if (id) return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}`;
+    }
+  } catch {
+    // The sheet can contain a plain YouTube video ID.
+  }
+
+  return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(value)}`;
 }
 
 function renderInstagramEmbeds(modalElement, modalKey) {
@@ -301,11 +322,14 @@ function renderInstagramEmbeds(modalElement, modalKey) {
   contentEl.appendChild(container);
   renderedInstagramModals.add(modalKey);
 
-  const postElements = items.map(({ postId, name, subText, date, aspectRatio }) => {
+  const postElements = items.map(({ postId, type, name, subText, date, aspectRatio }) => {
     const wrapper = document.createElement("div");
     wrapper.className = "iframe-wrapper";
+    if (type === "youtube") wrapper.classList.add("youtube-card");
 
     const cleanRatio = String(aspectRatio || "4/5").replace(/\s+/g, "");
+    const ratioParts = cleanRatio.split("/").map((s) => parseFloat(s.trim()));
+    const isPortraitReel = ratioParts[0] === 9 && ratioParts[1] === 15.75;
     wrapper.style.aspectRatio = cleanRatio;
     wrapper.dataset.aspectRatio = cleanRatio;
 
@@ -320,15 +344,29 @@ function renderInstagramEmbeds(modalElement, modalKey) {
     metaPad = Math.max(MIN_PAD, Math.min(MAX_PAD, metaPad));
     wrapper.style.setProperty("--meta-pad", `${metaPad}vw`);
 
+    const embedMarkup = type === "youtube"
+      ? `
+        <div class="youtube-embed">
+          <iframe
+            src="${getYoutubeEmbedUrl(postId)}"
+            title="${escapeHtml(name || "YouTube video")}"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen>
+          </iframe>
+        </div>`
+      : `
+        <div class="insta-embed${isPortraitReel ? " insta-embed--portrait-reel" : ""}">
+          <iframe
+            src="https://www.instagram.com/p/${encodeURIComponent(postId)}/embed/"
+            frameborder="0"
+            scrolling="no"
+            allowtransparency="true">
+          </iframe>
+        </div>`;
+
     wrapper.innerHTML = `
-      <div class="insta-embed">
-        <iframe
-          src="https://www.instagram.com/p/${postId}/embed/"
-          frameborder="0"
-          scrolling="no"
-          allowtransparency="true">
-        </iframe>
-      </div>
+      ${embedMarkup}
       <div class="iframe-cover"></div>
       <div class="post-meta">
         <div class="post-title">${escapeHtml(name || "")}</div>
@@ -351,15 +389,15 @@ function renderInstagramEmbeds(modalElement, modalKey) {
     const w = window.innerWidth;
     const numCols = w <= 600 ? 1 : w <= 1000 ? 2 : 3;
 
-    const gap = 15;
+    const gridStyles = getComputedStyle(container);
+    const gap = parseFloat(gridStyles.rowGap) || 15;
+    const rowHeight = parseFloat(gridStyles.gridAutoRows) || 8;
     const colWidth = (containerWidth - (numCols - 1) * gap) / numCols;
 
-    const columns = Array.from({ length: numCols }, () => []);
-    const columnHeights = Array(numCols).fill(0);
-
     postElements.forEach((el) => {
-      const shortestColIndex = columnHeights.indexOf(Math.min(...columnHeights));
-      columns[shortestColIndex].push(el);
+      const isYoutube = el.classList.contains("youtube-card");
+      const span = isYoutube && numCols >= 2 ? 2 : 1;
+      const itemWidth = colWidth * span + gap * (span - 1);
 
       const ratioStr = el.dataset.aspectRatio || "4/5";
       const parts = ratioStr.split("/").map((s) => parseFloat(s.trim()));
@@ -367,17 +405,14 @@ function renderInstagramEmbeds(modalElement, modalKey) {
       const hRatio = parts[1];
       const ratio = wRatio && hRatio ? hRatio / wRatio : 5 / 4;
 
-      const elHeight = colWidth * ratio;
-      columnHeights[shortestColIndex] += elHeight + gap;
+      const elHeight = itemWidth * ratio;
+      const rowSpan = Math.ceil((elHeight + gap) / (rowHeight + gap));
+      el.style.gridColumn = `span ${span}`;
+      el.style.gridRow = `span ${rowSpan}`;
     });
 
     container.innerHTML = "";
-    columns.forEach((col) => {
-      const colDiv = document.createElement("div");
-      colDiv.className = "masonry-column";
-      col.forEach((el) => colDiv.appendChild(el));
-      container.appendChild(colDiv);
-    });
+    postElements.forEach((el) => container.appendChild(el));
   }
 
   instagramLayoutHandlers.set(modalKey, layoutMasonry);
