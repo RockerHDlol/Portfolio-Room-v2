@@ -5,6 +5,8 @@ import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import gsap from "gsap";
 
+// test
+
 /**
  * ✅ Interaction lock:
  * - false while loading screen is up
