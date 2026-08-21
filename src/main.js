@@ -6,7 +6,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import gsap from "gsap";
 
 // Set to true to preload Instagram and YouTube content during startup.
-const PRELOAD_REELS = false;
+const PRELOAD_REELS = true;
 
 /**
  * ✅ Interaction lock:
