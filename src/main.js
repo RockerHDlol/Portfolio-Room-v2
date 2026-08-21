@@ -5,6 +5,9 @@ import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import gsap from "gsap";
 
+// Set to true to preload Instagram and YouTube content during startup.
+const PRELOAD_REELS = false;
+
 /**
  * ✅ Interaction lock:
  * - false while loading screen is up
@@ -320,7 +323,7 @@ function getYoutubeEmbedUrl(videoId) {
   return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(value)}`;
 }
 
-function renderInstagramEmbeds(modalElement, modalKey) {
+function renderInstagramEmbeds(modalElement, modalKey, { skipReels = false } = {}) {
   if (renderedInstagramModals.has(modalKey)) {
     return Promise.resolve();
   }
@@ -342,7 +345,16 @@ function renderInstagramEmbeds(modalElement, modalKey) {
 
   window.addEventListener("resize", masonryResizeHandler);
 
-  const items = [...(POSTS_BY_CATEGORY[modalKey] || [])].reverse();
+  let items = [...(POSTS_BY_CATEGORY[modalKey] || [])].reverse();
+  if (skipReels) {
+    items = items.filter(({ aspectRatio }) => {
+      const ratioParts = String(aspectRatio || "4/5")
+        .replace(/\s+/g, "")
+        .split("/")
+        .map((part) => parseFloat(part.trim()));
+      return !(ratioParts[0] === 9 && ratioParts[1] === 15.5);
+    });
+  }
   console.log(`Rendering ${items.length} posts for ${modalKey}`);
 
   if (items.length === 0) {
@@ -355,7 +367,9 @@ function renderInstagramEmbeds(modalElement, modalKey) {
   container.className = "insta-masonry";
   contentEl.innerHTML = "";
   contentEl.appendChild(container);
-  renderedInstagramModals.add(modalKey);
+  if (!skipReels) {
+    renderedInstagramModals.add(modalKey);
+  }
 
   const postElements = items.map(({ postId, type, name, subText, date, aspectRatio }) => {
     const wrapper = document.createElement("div");
@@ -794,18 +808,19 @@ window.addEventListener("keydown", (e) => {
 let postsLoaded = false;
 let postsPromise = null;
 
-manager.itemStart("posts");
 postsPromise = loadPostsFromSheet()
   .catch((err) => {
     console.error(err);
   })
   .finally(() => {
     postsLoaded = true;
-    manager.itemEnd("posts");
 });
 
-postsPromise
-  .then(async () => {
+if (!PRELOAD_REELS) {
+  manager.itemEnd("instagram-preload");
+} else {
+  postsPromise
+    .then(async () => {
     const preloadPromises = [];
 
     for (const modalKey of ["post", "film", "live"]) {
@@ -816,19 +831,22 @@ postsPromise
       modal.style.visibility = "hidden";
       modal.style.pointerEvents = "none";
       modal.style.opacity = "0";
-      preloadPromises.push(renderInstagramEmbeds(modal, modalKey));
+      preloadPromises.push(
+        renderInstagramEmbeds(modal, modalKey)
+      );
     }
 
     await Promise.all(preloadPromises);
     // Give Safari time to finish iframe scripts and layout before Enter is enabled.
     await new Promise((resolve) => setTimeout(resolve, 1000));
-  })
-  .catch((err) => {
-    console.error("Instagram preload failed:", err);
-  })
-  .finally(() => {
-    manager.itemEnd("instagram-preload");
-  });
+    })
+    .catch((err) => {
+      console.error("Instagram preload failed:", err);
+    })
+    .finally(() => {
+      manager.itemEnd("instagram-preload");
+    });
+}
 
 const showModal = async (modal, modalKey = null) => {
   console.log(`Opening modal: ${modalKey}`);
@@ -957,6 +975,10 @@ const socialLinks = {
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
+const pointerGlow = document.createElement("div");
+pointerGlow.className = "pointer-glow";
+pointerGlow.setAttribute("aria-hidden", "true");
+document.body.appendChild(pointerGlow);
 
 const textureLoader = new THREE.TextureLoader(manager);
 
@@ -1091,6 +1113,8 @@ function animateDust() {
 window.addEventListener("mousemove", (e) => {
   pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
   pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  pointerGlow.style.left = `${e.clientX}px`;
+  pointerGlow.style.top = `${e.clientY}px`;
   mouseCameraFollow.x = pointer.x;
   mouseCameraFollow.y = pointer.y;
   if (performance.now() >= suppressHoverUntil) hoverArmed = true;
@@ -1513,11 +1537,194 @@ let pendingPointerObject = null;
 let isPointerFocusFadingOut = false;
 const dimmedMaterials = [];
 
+const noiseCanvas = document.createElement("canvas");
+noiseCanvas.width = 128;
+noiseCanvas.height = 128;
+const noiseContext = noiseCanvas.getContext("2d");
+const noiseImage = noiseContext.createImageData(128, 128);
+
+for (let index = 0; index < noiseImage.data.length; index += 4) {
+  const value = Math.floor(Math.random() * 256);
+  noiseImage.data[index] = value;
+  noiseImage.data[index + 1] = value;
+  noiseImage.data[index + 2] = value;
+  noiseImage.data[index + 3] = 255;
+}
+
+noiseContext.putImageData(noiseImage, 0, 0);
+const noiseTexture = new THREE.CanvasTexture(noiseCanvas);
+noiseTexture.wrapS = THREE.RepeatWrapping;
+noiseTexture.wrapT = THREE.RepeatWrapping;
+noiseTexture.minFilter = THREE.LinearFilter;
+noiseTexture.magFilter = THREE.LinearFilter;
+
+const spotlightBoxMaterial = new THREE.ShaderMaterial({
+  uniforms: {
+    color: { value: new THREE.Color(0xffc266) },
+    opacity: { value: 0 },
+    uTime: { value: 0 },
+    uNoise: { value: noiseTexture },
+  },
+  vertexShader: `
+    varying vec3 vLocalPosition;
+    varying vec3 vWorldNormal;
+    varying vec3 vWorldPosition;
+
+    void main() {
+      vLocalPosition = position;
+      vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+      vWorldPosition = worldPosition.xyz;
+      vWorldNormal = normalize(mat3(modelMatrix) * normal);
+      gl_Position = projectionMatrix * viewMatrix * worldPosition;
+    }
+  `,
+  fragmentShader: `
+    uniform vec3 color;
+    uniform float opacity;
+    uniform float uTime;
+    uniform sampler2D uNoise;
+    varying vec3 vLocalPosition;
+    varying vec3 vWorldNormal;
+    varying vec3 vWorldPosition;
+
+    float hash(vec2 point) {
+      return fract(sin(dot(point, vec2(127.1, 311.7))) * 43758.5453);
+    }
+
+    float noise(vec2 point) {
+      vec2 cell = floor(point);
+      vec2 local = smoothstep(0.0, 1.0, fract(point));
+      float bottom = mix(hash(cell), hash(cell + vec2(1.0, 0.0)), local.x);
+      float top = mix(hash(cell + vec2(0.0, 1.0)), hash(cell + 1.0), local.x);
+      return mix(bottom, top, local.y);
+    }
+
+    void main() {
+      const float noiseInfluence = 5.0;
+      float progress = clamp((2.0 - vLocalPosition.y) / 4.0, 0.0, 1.0);
+      float angle = atan(vLocalPosition.z, vLocalPosition.x);
+      vec2 noiseUv = vec2(
+        fract((angle + 3.14159) / 6.28318 * 0.55 + uTime * 0.004),
+        fract(progress * 0.28 - uTime * 0.025)
+      );
+      float edgeNoise = texture2D(uNoise, noiseUv).r;
+      float softEdge = 1.0;
+      float beamFade = smoothstep(0.0, 0.18, progress);
+      float animatedProgress = progress * 0.2 - uTime * 0.04;
+      float stripeNoise = noise(vec2(angle * 4.0, animatedProgress));
+      float rayBands = 0.5 + 0.5 * sin(angle * 12.0);
+      float noisyRayBands = clamp(
+        rayBands + (stripeNoise - 0.5) * 0.3 * noiseInfluence,
+        0.0,
+        1.0
+      );
+      float rayStripes = 0.62 + 0.38 * smoothstep(0.28, 0.78, noisyRayBands);
+      float stripeIndex = floor((angle + 3.14159) / 6.28318 * 12.0);
+      float stripeRandom = fract(sin(stripeIndex * 91.73) * 43758.5453);
+      float rayBreaks = 0.86 + 0.14 * sin(
+        progress * (4.0 + stripeRandom * 3.0) + stripeRandom * 6.28318
+      );
+      float stripeBrightness = 0.8 + stripeRandom * 0.2;
+      float endFade = 1.0 - smoothstep(0.1, 0.8, progress);
+      float surfaceNoiseValue = noise(vec2(angle * 3.0, animatedProgress * 1.2));
+      float surfaceNoise = clamp(
+        0.82 + (surfaceNoiseValue - 0.5) * 0.18 * noiseInfluence,
+        0.05,
+        1.0
+      );
+      vec3 viewDirection = normalize(cameraPosition - vWorldPosition);
+      float cameraFacing = abs(dot(normalize(vWorldNormal), viewDirection));
+      float centerToEdgeFade = smoothstep(0.1, 0.82, cameraFacing);
+      float silhouetteFade = smoothstep(0.0, 0.5, cameraFacing);
+      float noisyEdgeFade = mix(0.0, 1.0, edgeNoise);
+      float edgeInfluence = 1.0 - silhouetteFade;
+      float animatedEdgeFade = mix(1.0, noisyEdgeFade, edgeInfluence);
+
+      gl_FragColor = vec4(
+        color,
+        softEdge * beamFade * rayStripes * rayBreaks
+          * stripeBrightness * endFade * surfaceNoise
+          * centerToEdgeFade * animatedEdgeFade * opacity
+      );
+    }
+  `,
+  transparent: true,
+  depthWrite: false,
+  depthTest: false,
+  side: THREE.DoubleSide,
+  blending: THREE.AdditiveBlending,
+});
+
+const spotlightBox = new THREE.Mesh(
+  new THREE.ConeGeometry(1, 4, 32, 1, true),
+  spotlightBoxMaterial
+);
+spotlightBox.visible = false;
+spotlightBox.renderOrder = 1000;
+spotlightBox.userData.selfRotation = 0;
+scene.add(spotlightBox);
+const spotlightClock = new THREE.Clock();
+
+function updateSpotlightBox(object) {
+  const bounds = new THREE.Box3().setFromObject(object);
+  const hit = currentIntersects.find(
+    (intersection) => intersection.object === object
+  );
+  const target = hit?.point?.clone() ?? bounds.getCenter(new THREE.Vector3());
+  const size = bounds.getSize(new THREE.Vector3());
+  const source = new THREE.Vector3(0, 0.75, -1).applyMatrix4(camera.matrixWorld);
+  const direction = source.clone().sub(target).normalize();
+  const height = source.distanceTo(target);
+  const baseQuaternion = new THREE.Quaternion().setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0),
+    direction
+  );
+  const spinQuaternion = new THREE.Quaternion().setFromAxisAngle(
+    new THREE.Vector3(0, 1, 0),
+    spotlightBox.userData.selfRotation || 0
+  );
+
+  spotlightBox.position.copy(source).add(target).multiplyScalar(0.5);
+  spotlightBox.quaternion.copy(baseQuaternion).multiply(spinQuaternion);
+  spotlightBox.scale.set(
+    Math.max(Math.max(size.x, size.z) * 0.35, 0.2),
+    height / 4,
+    Math.max(Math.max(size.x, size.z) * 0.35, 0.2)
+  );
+}
+
+function showSpotlightBox(object) {
+  updateSpotlightBox(object);
+  spotlightBox.visible = true;
+
+  gsap.killTweensOf(spotlightBoxMaterial.uniforms.opacity);
+  gsap.to(spotlightBoxMaterial.uniforms.opacity, {
+    value: 0.2,
+    duration: 0.25,
+    ease: "power2.out",
+  });
+}
+
+function hideSpotlightBox() {
+  gsap.killTweensOf(spotlightBoxMaterial.uniforms.opacity);
+  gsap.to(spotlightBoxMaterial.uniforms.opacity, {
+    value: 0,
+    duration: 0.2,
+    ease: "power2.out",
+    onComplete: () => {
+      if (spotlightBoxMaterial.uniforms.opacity.value === 0) {
+        spotlightBox.visible = false;
+      }
+    },
+  });
+}
+
 function applyPointerFocus(object) {
   focusedPointerObject = object;
+  showSpotlightBox(object);
 
   scene.traverse((child) => {
-    if (!child.isMesh || child === object) return;
+    if (!child.isMesh || child === object || child === spotlightBox) return;
 
     const materials = Array.isArray(child.material) ? child.material : [child.material];
     const dimmed = materials.map((material) => {
@@ -1546,6 +1753,7 @@ function clearPointerFocus() {
 
   focusedPointerObject = null;
   isPointerFocusFadingOut = true;
+  hideSpotlightBox();
   const materialsToRestore = dimmedMaterials.splice(0);
   let remaining = materialsToRestore.length;
 
@@ -1595,7 +1803,11 @@ function finishPointerFocusFade(materialsToRestore) {
 }
 
 function updatePointerFocus(object) {
-  if (object === focusedPointerObject || object === pendingPointerObject) return;
+  if (object === focusedPointerObject) {
+    updateSpotlightBox(object);
+    return;
+  }
+  if (object === pendingPointerObject) return;
 
   pendingPointerObject = object;
   if (!isPointerFocusFadingOut && dimmedMaterials.length === 0) {
@@ -1701,6 +1913,12 @@ function render() {
   animateDust();
   updateMouseCameraFollow();
   controls.update();
+  const spotlightDelta = Math.min(spotlightClock.getDelta(), 0.05);
+  spotlightBoxMaterial.uniforms.uTime.value = spotlightClock.elapsedTime;
+  if (spotlightBox.visible && focusedPointerObject) {
+    spotlightBox.userData.selfRotation += spotlightDelta * 0.05;
+    updateSpotlightBox(focusedPointerObject);
+  }
 
     // console.log(
     //     "cam pos:",
@@ -1728,6 +1946,7 @@ function render() {
     }
     clearPointerFocus();
     document.body.style.cursor = "default";
+    pointerGlow.classList.remove("is-visible");
   } else {
     raycaster.setFromCamera(pointer, camera);
     currentIntersects = raycaster.intersectObjects(raycasterObjects);
@@ -1746,6 +1965,7 @@ function render() {
       const isPointer = obj.name.includes("Pointer");
       updatePointerFocus(isPointer ? obj : null);
       document.body.style.cursor = isPointer ? "pointer" : "default";
+      pointerGlow.classList.toggle("is-visible", isPointer);
     } else {
       if (currentHoveredObject) {
         playHoverAnimation(currentHoveredObject, false);
@@ -1753,6 +1973,7 @@ function render() {
       }
       clearPointerFocus();
       document.body.style.cursor = "default";
+      pointerGlow.classList.remove("is-visible");
     }
   }
 

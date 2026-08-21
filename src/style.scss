@@ -22,6 +22,29 @@
   --modal-fade: max(40px, 1vw);
 }
 
+.pointer-glow {
+  position: fixed;
+  z-index: 99997;
+  width: 20vw;
+  height: 20vw;
+  border-radius: 10%;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle,
+    rgba(255, 220, 170, 0.28) 0%,
+    rgba(255, 220, 170, 0.12) 28%,
+    rgba(255, 220, 170, 0) 70%
+  );
+  mix-blend-mode: screen;
+  transition: opacity 180ms ease;
+}
+
+.pointer-glow.is-visible {
+  opacity: 0.25;
+}
+
 /* ========================================
    1) Right-edge Fade (statt Border/Box-Look)
    ======================================== */
