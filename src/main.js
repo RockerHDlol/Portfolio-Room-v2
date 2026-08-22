@@ -3,10 +3,14 @@ import "./style.scss";
 import { OrbitControls } from "./utils/OrbitControls.js";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { OutlinePass } from "three/addons/postprocessing/OutlinePass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import gsap from "gsap";
 
 // Set to true to preload Instagram and YouTube content during startup.
-const PRELOAD_REELS = true;
+const PRELOAD_REELS = false;
 
 /**
  * ✅ Interaction lock:
@@ -1290,6 +1294,22 @@ controls.enableDamping = false;
 controls.dampingFactor = 0;
 controls.update();
 
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+
+const outlinePass = new OutlinePass(
+  new THREE.Vector2(sizes.width, sizes.height),
+  scene,
+  camera
+);
+outlinePass.edgeStrength = 4;
+outlinePass.edgeGlow = 0.01;
+outlinePass.edgeThickness = 2;
+outlinePass.visibleEdgeColor.set(0xfff0c2);
+outlinePass.hiddenEdgeColor.set(0xfff0c2);
+composer.addPass(outlinePass);
+composer.addPass(new OutputPass());
+
 const mouseCameraFollow = { x: 0, y: 0 };
 let mouseFollowCenter = null;
 let manualOrbiting = false;
@@ -1492,6 +1512,7 @@ window.addEventListener("resize", () => {
 
   renderer.setSize(sizes.width, sizes.height);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  composer.setSize(sizes.width, sizes.height);
 
   updateCameraModeByOrientation();
 
@@ -1536,6 +1557,7 @@ let focusedPointerObject = null;
 let pendingPointerObject = null;
 let isPointerFocusFadingOut = false;
 const dimmedMaterials = [];
+const pointerFocusBaseMaterials = new WeakMap();
 
 const noiseCanvas = document.createElement("canvas");
 noiseCanvas.width = 128;
@@ -1699,7 +1721,7 @@ function showSpotlightBox(object) {
 
   gsap.killTweensOf(spotlightBoxMaterial.uniforms.opacity);
   gsap.to(spotlightBoxMaterial.uniforms.opacity, {
-    value: 0.2,
+    value: 0.01,
     duration: 0.25,
     ease: "power2.out",
   });
@@ -1726,10 +1748,14 @@ function applyPointerFocus(object) {
   scene.traverse((child) => {
     if (!child.isMesh || child === object || child === spotlightBox) return;
 
-    const materials = Array.isArray(child.material) ? child.material : [child.material];
-    const dimmed = materials.map((material) => {
+    const baseMaterial = pointerFocusBaseMaterials.get(child) ?? child.material;
+    pointerFocusBaseMaterials.set(child, baseMaterial);
+    const currentMaterials = Array.isArray(child.material) ? child.material : [child.material];
+    const baseMaterials = Array.isArray(baseMaterial) ? baseMaterial : [baseMaterial];
+    const dimmed = currentMaterials.map((material, index) => {
+      gsap.killTweensOf(material.color);
       const copy = material.clone();
-      const targetColor = copy.color?.clone().multiplyScalar(0.6);
+      const targetColor = baseMaterials[index]?.color?.clone().multiplyScalar(0.6);
 
       if (targetColor) {
         gsap.to(copy.color, {
@@ -1743,32 +1769,27 @@ function applyPointerFocus(object) {
       return copy;
     });
 
-    dimmedMaterials.push({ mesh: child, material: child.material });
+    dimmedMaterials.push({ mesh: child, material: baseMaterial });
     child.material = Array.isArray(child.material) ? dimmed : dimmed[0];
   });
 }
 
 function clearPointerFocus() {
-  if (isPointerFocusFadingOut || dimmedMaterials.length === 0) return;
+  if (dimmedMaterials.length === 0) return;
 
   focusedPointerObject = null;
-  isPointerFocusFadingOut = true;
   hideSpotlightBox();
   const materialsToRestore = dimmedMaterials.splice(0);
-  let remaining = materialsToRestore.length;
 
   for (const { mesh, material } of materialsToRestore) {
     const copies = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     const originals = Array.isArray(material) ? material : [material];
-    let hasAnimatedColor = false;
 
     copies.forEach((copy, index) => {
       const originalColor = originals[index]?.color;
-      if (!copy.color || !originalColor) {
-        return;
-      }
+      if (!copy.color || !originalColor) return;
 
-      hasAnimatedColor = true;
+      gsap.killTweensOf(copy.color);
       gsap.to(copy.color, {
         r: originalColor.r,
         g: originalColor.g,
@@ -1776,30 +1797,15 @@ function clearPointerFocus() {
         duration: 0.35,
         ease: "power2.out",
         onComplete: () => {
-          if (--remaining === 0) finishPointerFocusFade(materialsToRestore);
+          if (mesh.material === copy || mesh.material[index] === copy) {
+            mesh.material = material;
+          }
         },
       });
     });
-
-    if (!hasAnimatedColor && --remaining === 0) {
-      finishPointerFocusFade(materialsToRestore);
-    }
-  }
-}
-
-function finishPointerFocusFade(materialsToRestore) {
-  for (const { mesh, material } of materialsToRestore) {
-    if (mesh.material !== material && Array.isArray(mesh.material)) {
-      mesh.material = material;
-    } else if (mesh.material !== material) {
-      mesh.material = material;
-    }
   }
 
   isPointerFocusFadingOut = false;
-  const nextObject = pendingPointerObject;
-  pendingPointerObject = null;
-  if (nextObject) applyPointerFocus(nextObject);
 }
 
 function updatePointerFocus(object) {
@@ -1807,15 +1813,10 @@ function updatePointerFocus(object) {
     updateSpotlightBox(object);
     return;
   }
-  if (object === pendingPointerObject) return;
 
-  pendingPointerObject = object;
-  if (!isPointerFocusFadingOut && dimmedMaterials.length === 0) {
-    pendingPointerObject = null;
-    if (object) applyPointerFocus(object);
-    return;
-  }
+  pendingPointerObject = null;
   clearPointerFocus();
+  if (object) applyPointerFocus(object);
 }
 
 
@@ -1945,6 +1946,7 @@ function render() {
       currentHoveredObject = null;
     }
     clearPointerFocus();
+    outlinePass.selectedObjects = [];
     document.body.style.cursor = "default";
     pointerGlow.classList.remove("is-visible");
   } else {
@@ -1953,6 +1955,7 @@ function render() {
 
     if (currentIntersects.length > 0) {
       const obj = currentIntersects[0].object;
+      outlinePass.selectedObjects = [obj];
 
       if (obj.name.includes("Hover")) {
         if (obj !== currentHoveredObject) {
@@ -1972,12 +1975,13 @@ function render() {
         currentHoveredObject = null;
       }
       clearPointerFocus();
+      outlinePass.selectedObjects = [];
       document.body.style.cursor = "default";
       pointerGlow.classList.remove("is-visible");
     }
   }
 
-  renderer.render(scene, camera);
+  composer.render();
   requestAnimationFrame(render);
 }
 
