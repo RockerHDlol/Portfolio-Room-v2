@@ -458,7 +458,7 @@ body.menu-open #experience {
 
   padding: clamp(16px, 2.2vw, 28px);
 
-  color: #fff;
+  color: #f3f3f3;
 
   /* ✅ SCROLL FIX */
     /* inner ist nur Rahmen/Wrapper */
@@ -476,6 +476,8 @@ body.menu-open #experience {
 
 
 .about-box-scroll {
+  position: relative;
+  z-index: 1;
   max-height: min(90vh, calc(100dvh - 24px));
   overflow-y: auto;
   overflow-x: hidden;
@@ -487,33 +489,6 @@ body.menu-open #experience {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-
-.about-box-inner::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: -30% -22%;
-  border-radius: inherit;
-  background: rgba(0, 0, 0, 0.68);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  pointer-events: none;
-  -webkit-mask-image: radial-gradient(
-    ellipse at center,
-    #000 38%,
-    rgba(0, 0, 0, 0.75) 58%,
-    rgba(0, 0, 0, 0.18) 72%,
-    transparent 82%
-  );
-  mask-image: radial-gradient(
-    ellipse at center,
-    #000 38%,
-    rgba(0, 0, 0, 0.75) 58%,
-    rgba(0, 0, 0, 0.18) 72%,
-    transparent 82%
-  );
-}
-
 
 .about-box-title {
   font-family: "Satoshi", sans-serif;
@@ -528,6 +503,35 @@ body.menu-open #experience {
   line-height: 1.55;
   opacity: 1;
   margin-top: 10px;
+}
+
+#aboutMeBox .about-box-title,
+#aboutMeBox .about-box-inner p {
+  -webkit-text-stroke: 0.35px #000;
+  paint-order: stroke fill;
+}
+
+#aboutMeBox .about-box-inner {
+  background: transparent;
+}
+
+#aboutMeBox .about-box-inner::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: -42px;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 0.3) 0%,
+    rgba(0, 0, 0, 0.1) 55%,
+    transparent 100%
+  );
+  filter: blur(10px);
+  pointer-events: none;
+}
+
+#aboutMeBox .about-box-inner p {
+  font-size: max(1.1vw, 20px);
 }
 
 .contact-form {
@@ -555,8 +559,9 @@ body.menu-open #experience {
 
 .contact-form input:focus,
 .contact-form textarea:focus {
-  outline: 2px solid rgba(255, 255, 255, 0.7);
-  outline-offset: 2px;
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
 }
 
 .contact-form button {

@@ -130,11 +130,9 @@ if (contactForm) {
   });
 }
 
-function showAboutBox(box = aboutBox) {
+function showAboutBox(box = aboutBox, { shapeKeyAlreadyOpening = false } = {}) {
   if (!box) return;
   hideMenuUI();
-
-  storePortraitPoseBeforeOverlay();
 
   const inner = box.querySelector(".about-box-inner") || box;
   inner.appendChild(globalCloseBtn);
@@ -153,6 +151,12 @@ function showAboutBox(box = aboutBox) {
   controls.enablePan = false;
   controls.enableDamping = false;
 
+  if (!shapeKeyAlreadyOpening) {
+    setShapeKeysOpen(false);
+  }
+  if (box === getInTouchBox && !shapeKeyAlreadyOpening) {
+    setShapeKeysOpen(true, "GetInTouch");
+  }
   if (currentHoveredObject) {
     playHoverAnimation(currentHoveredObject, false);
     currentHoveredObject = null;
@@ -171,6 +175,49 @@ function showAboutBox(box = aboutBox) {
   );
 }
 
+function openGetInTouch() {
+  hideMenuUI();
+  setShapeKeysOpen(false);
+  setShapeKeysOpen(true, "GetInTouch");
+  flyToView("getInTouch", {
+    onComplete: () => showAboutBox(getInTouchBox, { shapeKeyAlreadyOpening: true }),
+  });
+}
+
+function startOverlayReturnFlight() {
+  if (isPortraitMode && lastPortraitBeforeOverlay) {
+    slideT = lastPortraitBeforeOverlay.slideT ?? slideT;
+    const returnPose = getCameraSlidePose(slideT);
+    suppressPortraitSlide = true;
+
+    flyToPose(
+      returnPose.position,
+      returnPose.target,
+      {
+        duration: 0.6,
+        ease: "power2.out",
+        onComplete: () => {
+          controls.enableRotate = false;
+          disableOrbitLimits();
+          controls.enabled = true;
+          controls.update();
+          suppressPortraitSlide = false;
+        },
+      }
+    );
+    return;
+  }
+
+  flyToView("home", {
+    onComplete: () => {
+      controls.enableRotate = true;
+      enableOrbitLimitsAroundCurrentView();
+      controls.enabled = true;
+      controls.update();
+    },
+  });
+}
+
 function hideAboutBox(box = aboutBox) {
   if (!box) return;
   showMenuUI();
@@ -181,6 +228,9 @@ function hideAboutBox(box = aboutBox) {
 
   gsap.killTweensOf(box);
   gsap.killTweensOf(inner);
+  pendingShapeKeyCategory = null;
+  isCameraMoving = true;
+  isModalOpen = false;
 
   gsap.to(inner, {
     opacity: 0,
@@ -194,46 +244,9 @@ function hideAboutBox(box = aboutBox) {
 
       globalCloseBtn.classList.remove("is-about");
       globalCloseBtn.style.display = "none";
-      isModalOpen = false;
 
-      // WICHTIG: NICHT controls.enabled hier setzen
-      // controls.enabled = false; // <- ENTFERNEN
-
-      if (isPortraitMode && lastPortraitBeforeOverlay) {
-        slideT = lastPortraitBeforeOverlay.slideT ?? slideT;
-        
-        // WICHTIG: suppressPortraitSlide für die Rückflug-Animation aktivieren
-        suppressPortraitSlide = true;
-
-        flyToPose(
-          lastPortraitBeforeOverlay.position,
-          lastPortraitBeforeOverlay.target,
-          {
-            duration: 0.6,
-            ease: "power2.out",
-            onComplete: () => {
-              controls.enableRotate = false;
-              disableOrbitLimits();
-              controls.enabled = true;
-              controls.update();
-              
-              // WICHTIG: suppressPortraitSlide wieder deaktivieren
-              suppressPortraitSlide = false;
-              // ✅ Jetzt die aktuelle Slide-Position anwenden
-              applyCameraSlide(slideT);
-            },
-          }
-        );
-      } else {
-        flyToView("home", {
-          onComplete: () => {
-            controls.enableRotate = true;
-            enableOrbitLimitsAroundCurrentView();
-            controls.enabled = true;
-            controls.update();
-          },
-        });
-      }
+      setShapeKeysOpen(false);
+      startOverlayReturnFlight();
 
       suppressHoverUntil = performance.now() + 300;
       hoverArmed = false;
@@ -709,14 +722,13 @@ if (menuPanel) {
     if (aboutBtn) {
       closeMenu();
       hideMenuUI();
-      showAboutBox();
+      flyToView("aboutMe", { onComplete: () => showAboutBox() });
       return;
     }
 
     if (getInTouchBtn) {
       closeMenu();
-      hideMenuUI();
-      showAboutBox(getInTouchBox);
+      openGetInTouch();
       return;
     }
 
@@ -724,14 +736,17 @@ if (menuPanel) {
 
     const view = viewBtn.getAttribute("data-view");
     closeMenu();
+    setShapeKeysOpen(false);
 
     if (view === "post") {
       hideMenuUI();
       flyToView("post", { onComplete: () => showModal(modals.post, "post") });
     } else if (view === "film") {
+      setShapeKeysOpen(true, "Film");
       hideMenuUI();
       flyToView("film", { onComplete: () => showModal(modals.film, "film") });
     } else if (view === "live") {
+      setShapeKeysOpen(true, "Live");
       hideMenuUI();
       flyToView("live", { onComplete: () => showModal(modals.live, "live") });
     }
@@ -855,8 +870,6 @@ if (!PRELOAD_REELS) {
 const showModal = async (modal, modalKey = null) => {
   console.log(`Opening modal: ${modalKey}`);
 
-  storePortraitPoseBeforeOverlay();
-
   modal.style.display = "block";
   modal.style.visibility = "visible";
   modal.style.pointerEvents = "auto";
@@ -872,6 +885,15 @@ const showModal = async (modal, modalKey = null) => {
   controls.enablePan = false;
   controls.enableDamping = false;
 
+  const modalShapeKeyCategory =
+    { live: "Live", film: "Film" }[modalKey] ||
+    getShapeKeyCategory(currentHoveredObject) ||
+    pendingShapeKeyCategory;
+  setShapeKeysOpen(false);
+  if (modalShapeKeyCategory) {
+    setShapeKeysOpen(true, modalShapeKeyCategory);
+  }
+  pendingShapeKeyCategory = null;
   if (currentHoveredObject) {
     playHoverAnimation(currentHoveredObject, false);
     currentHoveredObject = null;
@@ -891,7 +913,9 @@ const hideModal = (modal) => {
   globalCloseBtn.style.display = "none";
   suppressHoverUntil = performance.now() + 800;
   hoverArmed = false;
+  isCameraMoving = true;
 
+  pendingShapeKeyCategory = null;
   currentIntersects = [];
   if (currentHoveredObject) {
     playHoverAnimation(currentHoveredObject, false);
@@ -910,48 +934,8 @@ const hideModal = (modal) => {
       modal.style.pointerEvents = "none";
       modal.classList.remove("is-open");
       showMenuUI();
-
-      // WICHTIG: NICHT controls.enabled hier setzen - das wird in flyToPose/flyToView gemacht
-      // controls.enabled = false; // <- ENTFERNEN
-
-      if (isPortraitMode && lastPortraitBeforeOverlay) {
-        // ✅ Portrait: zurück zum Zustand VOR dem Öffnen (mit Animation)
-        slideT = lastPortraitBeforeOverlay.slideT ?? slideT;
-        
-        // WICHTIG: suppressPortraitSlide für die Rückflug-Animation aktivieren
-        suppressPortraitSlide = true;
-
-        flyToPose(
-          lastPortraitBeforeOverlay.position,
-          lastPortraitBeforeOverlay.target,
-          {
-            duration: 0.6,
-            ease: "power2.out",
-            onComplete: () => {
-              // ✅ Portrait bleibt locked
-              controls.enableRotate = false;
-              disableOrbitLimits();
-              controls.enabled = true;
-              controls.update();
-              
-              // WICHTIG: suppressPortraitSlide wieder deaktivieren
-              suppressPortraitSlide = false;
-              // ✅ Jetzt die aktuelle Slide-Position anwenden
-              applyCameraSlide(slideT);
-            },
-          }
-        );
-      } else {
-        // ✅ Landscape: normal home
-        flyToView("home", {
-          onComplete: () => {
-            controls.enableRotate = true;
-            enableOrbitLimitsAroundCurrentView();
-            controls.enabled = true;
-            controls.update();
-          },
-        });
-      }
+      setShapeKeysOpen(false);
+      startOverlayReturnFlight();
 
       // Diese Zeilen sind redundant - sie werden in den onComplete Callbacks oben gemacht
       // suppressHoverUntil = performance.now() + 300;
@@ -968,13 +952,15 @@ const hideModal = (modal) => {
 
 // ----- Raycaster -----
 const raycasterObjects = [];
+const shapeKeyMeshes = new Map();
 let currentIntersects = [];
 let currentHoveredObject = null;
+let pendingShapeKeyCategory = null;
 
 const socialLinks = {
   YouTube: "https://www.youtube.com",
   Instagram: "https://www.instagram.com/caspar_reichl/",
-  Artstaion: "https://www.artstation.com/caspar_r",
+  Artstation: "https://www.artstation.com/caspar_r",
 };
 
 const raycaster = new THREE.Raycaster();
@@ -983,6 +969,33 @@ const pointerGlow = document.createElement("div");
 pointerGlow.className = "pointer-glow";
 pointerGlow.setAttribute("aria-hidden", "true");
 document.body.appendChild(pointerGlow);
+
+function setShapeKeysOpen(isOpen, category = null) {
+  const categories = category ? [category] : ["Live", "GetInTouch", "Film"];
+
+  categories.forEach((shapeCategory) => {
+    const meshes = shapeKeyMeshes.get(shapeCategory) || [];
+    meshes.forEach((mesh) => {
+      const openIndex = mesh.morphTargetDictionary?.Open;
+      if (openIndex === undefined || !mesh.morphTargetInfluences) return;
+
+      gsap.killTweensOf(mesh.morphTargetInfluences);
+      gsap.to(mesh.morphTargetInfluences, {
+        [openIndex]: isOpen ? 1 : 0,
+        duration: isOpen ? 0.45 : 0.3,
+        ease: isOpen ? "power2.out" : "power2.inOut",
+        overwrite: true,
+      });
+    });
+  });
+}
+
+function getShapeKeyCategory(object) {
+  if (!object) return null;
+  return ["Live", "GetInTouch", "Film"].find((category) =>
+    object.name.includes(category)
+  ) || null;
+}
 
 const textureLoader = new THREE.TextureLoader(manager);
 
@@ -993,10 +1006,11 @@ const loader = new GLTFLoader(manager);
 loader.setDRACOLoader(dracoLoader);
 
 const textureMap = {
-  Pic1: { day: "/textures/Room/Day/Pic1.webp" },
-  Pic2: { day: "/textures/Room/Day/Pic2.webp" },
-  Pic3: { day: "/textures/Room/Day/Pic3.webp" },
-  Pic4: { day: "/textures/Room/Day/Pic4.webp" },
+  Txt1: { day: "/textures/Room/Day/Txt1.webp" },
+  Txt2: { day: "/textures/Room/Day/Txt2.webp" },
+  Txt3: { day: "/textures/Room/Day/Txt3.webp" },
+  Txt4: { day: "/textures/Room/Day/Txt4.webp" },
+  Txt5: { day: "/textures/Room/Day/Txt5.webp" },
 };
 
 const loadedTextures = { day: {} };
@@ -1051,7 +1065,7 @@ dustGeometry.setAttribute("aOpacity", new THREE.BufferAttribute(dustOpacities, 1
 const dustMaterial = new THREE.ShaderMaterial({
   uniforms: {
     uColor: { value: new THREE.Color(0xffffff) },
-    uOpacity: { value: 1 },
+    uOpacity: { value: 0.5 },
   },
   vertexShader: `
     attribute float aSize;
@@ -1176,20 +1190,26 @@ function handleRaycasterInteraction() {
       }
     });
 
-    if (object.name.includes("workPC")) {
+    const shapeKeyCategory = getShapeKeyCategory(object);
+    if (shapeKeyCategory) {
+      pendingShapeKeyCategory = shapeKeyCategory;
+      setShapeKeysOpen(true, shapeKeyCategory);
+    }
+
+    if (object.name.includes("Post")) {
       hideMenuUI();
       flyToView("post", { onComplete: () => showModal(modals.post, "post") });
-    } else if (object.name.includes("workCamera")) {
+    } else if (object.name.includes("Film")) {
       hideMenuUI();
       flyToView("film", { onComplete: () => showModal(modals.film, "film") });
-    } else if (object.name.includes("workEvent")) {
+    } else if (object.name.includes("Live")) {
       hideMenuUI();
       flyToView("live", { onComplete: () => showModal(modals.live, "live") });
-    } else if (object.name.includes("aboutMe")) {
+    } else if (object.name.includes("AboutMe")) {
       hideMenuUI();
-      showAboutBox();
-    } else if (object.name.includes("contact")) {
-      showModal(modals.contact);
+      flyToView("aboutMe", { onComplete: () => showAboutBox() });
+    } else if (object.name.includes("GetInTouch")) {
+      openGetInTouch();
     }
   }
 }
@@ -1229,6 +1249,15 @@ loader.load("/models/Room_Portfolio.glb", (glb) => {
     if (!child.isMesh) return;
 
     if (child.name.includes("Raycaster")) raycasterObjects.push(child);
+
+    const shapeKeyCategory = ["Live", "GetInTouch", "Film"].find((category) =>
+      child.name.includes(`anim${category}`)
+    );
+    if (shapeKeyCategory && child.morphTargetDictionary?.Open !== undefined) {
+      const meshes = shapeKeyMeshes.get(shapeKeyCategory) || [];
+      meshes.push(child);
+      shapeKeyMeshes.set(shapeKeyCategory, meshes);
+    }
 
     if (child.name.includes("Hover")) {
       child.userData.initialScale = new THREE.Vector3().copy(child.scale);
@@ -1292,6 +1321,9 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = false;
 controls.dampingFactor = 0;
+controls.enableZoom = false;
+controls.enablePan = false;
+controls.mouseButtons.LEFT = -1;
 controls.update();
 
 const composer = new EffectComposer(renderer);
@@ -1312,7 +1344,6 @@ composer.addPass(new OutputPass());
 
 const mouseCameraFollow = { x: 0, y: 0 };
 let mouseFollowCenter = null;
-let manualOrbiting = false;
 
 const azimuthLimit = Math.PI / 30;
 const polarLimit = Math.PI / 30;
@@ -1356,13 +1387,12 @@ function updateMouseCameraFollow() {
     isModalOpen ||
     isMenuOpen ||
     isCameraMoving ||
-    manualOrbiting ||
     isPortraitMode ||
     !mouseFollowCenter
   ) return;
 
-  const desiredAzimuth = mouseFollowCenter.azimuth + mouseCameraFollow.x * azimuthLimit * 0.85;
-  const desiredPolar = mouseFollowCenter.polar - mouseCameraFollow.y * polarLimit * 0.85;
+  const desiredAzimuth = mouseFollowCenter.azimuth - mouseCameraFollow.x * azimuthLimit * 0.85;
+  const desiredPolar = mouseFollowCenter.polar + mouseCameraFollow.y * polarLimit * 0.85;
   const azimuthDelta = Math.atan2(
     Math.sin(controls.getAzimuthalAngle() - desiredAzimuth),
     Math.cos(controls.getAzimuthalAngle() - desiredAzimuth)
@@ -1382,24 +1412,11 @@ function disableOrbitLimits() {
   controls.maxDistance = Infinity;
 }
 
-camera.position.set(7.657997013443906, 4.2664251408437535, -4.2);
-controls.target.set(5.3, 4.05, -4.55);
+camera.position.set(7.611597, 4.105842, -3.931968);
+controls.target.set(5.299212, 4.064206, -4.548922);
 controls.update();
 enableOrbitLimitsAroundCurrentView();
 rememberMouseFollowCenter();
-
-renderer.domElement.addEventListener("pointerdown", (event) => {
-  if (event.button === 0 && interactionEnabled && !isModalOpen && !isMenuOpen) {
-    manualOrbiting = true;
-  }
-});
-
-window.addEventListener("pointerup", () => {
-  if (!manualOrbiting) return;
-  manualOrbiting = false;
-  controls.update();
-  rememberMouseFollowCenter();
-});
 
 const HOME_VIEW = {
   position: camera.position.clone(),
@@ -1409,16 +1426,24 @@ const HOME_VIEW = {
 const VIEWS = {
   home: HOME_VIEW,
   post: {
-    position: new THREE.Vector3(6.011918667226149, 4.165424262115528, -4.151384665960448),
-    target: new THREE.Vector3(5.4, 4.15, -4.18),
+    position: new THREE.Vector3(5.931555, 4.167, -4.353710),
+    target: new THREE.Vector3(3.649932, 4.089398, -4.891482),
   },
   film: {
-    position: new THREE.Vector3(5.915519, 4.019118, -5.290547),
-    target: new THREE.Vector3(5.800511, 4.022210, -5.249112),
+    position: new THREE.Vector3(5.825, 3.9493, -5.26),
+    target: new THREE.Vector3(3.706748, 3.9493, -4.44),
   },
   live: {
-    position: new THREE.Vector3(5.573762, 4.116623, -3.628980),
-    target: new THREE.Vector3(5.241140, 4.008493, -3.582967),
+    position: new THREE.Vector3(5.6, 4.185, -3.63),
+    target: new THREE.Vector3(4.0, 3.862, -3.43),
+  },
+  getInTouch: {
+    position: new THREE.Vector3(5.977750, 3.988431, -4.666564),
+    target: new THREE.Vector3(4.260603, 3.824860, -5.659001),
+  },
+  aboutMe: {
+    position: new THREE.Vector3(5.300328, 4.68, -3.507073),
+    target: new THREE.Vector3(3.926416, 4.670120, -3.573910),
   },
 };
 
@@ -1426,6 +1451,10 @@ const VIEWS = {
 function flyToView(viewKey, { duration = 0.7, ease = "power2.out", onComplete } = {}) {
   const view = VIEWS[viewKey];
   if (!view) return;
+
+  if (viewKey !== "home") {
+    storePortraitPoseBeforeOverlay();
+  }
 
   isCameraMoving = true;
   controls.enabled = false;
@@ -1551,6 +1580,57 @@ function playHoverAnimation(object, isHovering) {
       ease: "bounce.out(1.8)",
     });
   }
+}
+
+function getHighlightGroup(object) {
+  const groupTags = ["Post", "Film", "Live"];
+  const groupTag = groupTags.find((tag) => object.name.includes(tag));
+
+  if (!groupTag) return [object];
+
+  return raycasterObjects.filter((candidate) =>
+    candidate.name.includes(groupTag)
+  );
+}
+
+let highlightedObjects = [];
+
+function setHighlightedObjects(object) {
+  const highlightGroup = object ? getHighlightGroup(object) : [];
+  const groupChanged =
+    highlightGroup.length !== highlightedObjects.length ||
+    highlightGroup.some((candidate) => !highlightedObjects.includes(candidate));
+
+  if (!groupChanged) return;
+
+  const shapeKeyCategory = getShapeKeyCategory(object);
+  if (object) {
+    setShapeKeysOpen(false);
+    if (shapeKeyCategory) {
+      setShapeKeysOpen(true, shapeKeyCategory);
+    }
+  } else if (!isModalOpen && !isCameraMoving) {
+    setShapeKeysOpen(false);
+  }
+
+  highlightedObjects.forEach((candidate) => {
+    if (candidate.name.includes("Hover")) {
+      playHoverAnimation(candidate, false);
+    }
+  });
+
+  outlinePass.selectedObjects = highlightGroup;
+
+  highlightGroup.forEach((candidate) => {
+    if (candidate.name.includes("Hover")) {
+      playHoverAnimation(candidate, true);
+    }
+  });
+
+  currentHoveredObject = highlightGroup.find((candidate) =>
+    candidate.name.includes("Hover")
+  ) || null;
+  highlightedObjects = highlightGroup;
 }
 
 let focusedPointerObject = null;
@@ -1688,7 +1768,20 @@ scene.add(spotlightBox);
 const spotlightClock = new THREE.Clock();
 
 function updateSpotlightBox(object) {
-  const bounds = new THREE.Box3().setFromObject(object);
+  if (!object?.isObject3D || !object.parent) {
+    hideSpotlightBox();
+    return;
+  }
+
+  let bounds;
+  try {
+    bounds = new THREE.Box3().setFromObject(object);
+  } catch (error) {
+    console.warn("Skipping spotlight for invalid mesh", object.name, error);
+    hideSpotlightBox();
+    return;
+  }
+
   const hit = currentIntersects.find(
     (intersection) => intersection.object === object
   );
@@ -1849,6 +1942,15 @@ const SLIDE = {
 
 updateCameraModeByOrientation();
 
+function getCameraSlidePose(t) {
+  const clampedT = Math.max(0, Math.min(1, t));
+
+  return {
+    position: SLIDE.left.position.clone().lerp(SLIDE.right.position, clampedT),
+    target: SLIDE.left.target.clone().lerp(SLIDE.right.target, clampedT),
+  };
+}
+
 
 function applyCameraSlide(t) {
   // ✅ Während Rückflug oder wenn andere Animationen laufen nicht überschreiben
@@ -1856,11 +1958,10 @@ function applyCameraSlide(t) {
 
   slideT = Math.max(0, Math.min(1, t));
 
-  const p = SLIDE.left.position.clone().lerp(SLIDE.right.position, slideT);
-  const tgt = SLIDE.left.target.clone().lerp(SLIDE.right.target, slideT);
+  const { position, target } = getCameraSlidePose(slideT);
 
-  camera.position.copy(p);
-  controls.target.copy(tgt);
+  camera.position.copy(position);
+  controls.target.copy(target);
   controls.update();
 }
 
@@ -1872,7 +1973,7 @@ function setPortraitMode(enabled) {
     // Portrait: kein Orbit-rotate, wir sliden
     controls.enableRotate = false;
     controls.enablePan = false;
-    controls.enableZoom = true;
+    controls.enableZoom = false;
 
     disableOrbitLimits();
     
@@ -1891,7 +1992,7 @@ function setPortraitMode(enabled) {
 
     controls.enableRotate = true;
     controls.enablePan = false;
-    controls.enableZoom = true;
+    controls.enableZoom = false;
 
     enableOrbitLimitsAroundCurrentView();
   }
@@ -1941,12 +2042,8 @@ function render() {
     !hoverArmed ||
     performance.now() < suppressHoverUntil
   ) {
-    if (currentHoveredObject) {
-      playHoverAnimation(currentHoveredObject, false);
-      currentHoveredObject = null;
-    }
+    setHighlightedObjects(null);
     clearPointerFocus();
-    outlinePass.selectedObjects = [];
     document.body.style.cursor = "default";
     pointerGlow.classList.remove("is-visible");
   } else {
@@ -1955,27 +2052,15 @@ function render() {
 
     if (currentIntersects.length > 0) {
       const obj = currentIntersects[0].object;
-      outlinePass.selectedObjects = [obj];
-
-      if (obj.name.includes("Hover")) {
-        if (obj !== currentHoveredObject) {
-          if (currentHoveredObject) playHoverAnimation(currentHoveredObject, false);
-          playHoverAnimation(obj, true);
-          currentHoveredObject = obj;
-        }
-      }
+      setHighlightedObjects(obj);
 
       const isPointer = obj.name.includes("Pointer");
       updatePointerFocus(isPointer ? obj : null);
       document.body.style.cursor = isPointer ? "pointer" : "default";
       pointerGlow.classList.toggle("is-visible", isPointer);
     } else {
-      if (currentHoveredObject) {
-        playHoverAnimation(currentHoveredObject, false);
-        currentHoveredObject = null;
-      }
+      setHighlightedObjects(null);
       clearPointerFocus();
-      outlinePass.selectedObjects = [];
       document.body.style.cursor = "default";
       pointerGlow.classList.remove("is-visible");
     }
