@@ -1021,6 +1021,16 @@ const socialLinks = {
   Artstation: "https://www.artstation.com/caspar_r",
 };
 
+function openExternalLink(url) {
+  const link = document.createElement("a");
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const pointerGlow = document.createElement("div");
@@ -1240,11 +1250,7 @@ function handleRaycasterInteraction() {
 
     Object.entries(socialLinks).forEach(([key, url]) => {
       if (object.name.includes(key)) {
-        const newWindow = window.open();
-        if (newWindow) {
-          newWindow.opener = null;
-          newWindow.location = url;
-        }
+        openExternalLink(url);
       }
     });
 
