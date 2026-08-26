@@ -133,6 +133,7 @@ if (contactForm) {
 function showAboutBox(box = aboutBox, { shapeKeyAlreadyOpening = false } = {}) {
   if (!box) return;
   hideMenuUI();
+  setDeepLinkView(box === getInTouchBox ? "contact" : "about");
 
   const inner = box.querySelector(".about-box-inner") || box;
   inner.appendChild(globalCloseBtn);
@@ -177,6 +178,7 @@ function showAboutBox(box = aboutBox, { shapeKeyAlreadyOpening = false } = {}) {
 
 function openGetInTouch() {
   hideMenuUI();
+  setDeepLinkView("contact");
   setShapeKeysOpen(false);
   setShapeKeysOpen(true, "GetInTouch");
   flyToView("getInTouch", {
@@ -221,6 +223,7 @@ function startOverlayReturnFlight() {
 function hideAboutBox(box = aboutBox) {
   if (!box) return;
   showMenuUI();
+  clearDeepLinkView();
   globalCloseBtn.classList.remove("is-about");
   globalCloseBtn.style.display = "none";
 
@@ -537,6 +540,7 @@ function playReveal() {
     loadingScreen.remove();
     revealHamburgerMenu();
     interactionEnabled = true;
+    openDeepLinkView();
   });
 }
 
@@ -686,6 +690,55 @@ function showMenuUI() {
       ease: "power1.out",
     }
   );
+}
+
+const deepLinkViews = new Set(["post", "film", "live", "about", "contact"]);
+
+function setDeepLinkView(view) {
+  if (!deepLinkViews.has(view)) return;
+
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("view") === view) return;
+
+  url.searchParams.set("view", view);
+  window.history.replaceState({}, "", url);
+}
+
+function clearDeepLinkView() {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("view")) return;
+
+  url.searchParams.delete("view");
+  window.history.replaceState({}, "", url);
+}
+
+function openDeepLinkView() {
+  const view = new URLSearchParams(window.location.search).get("view");
+
+  switch (view) {
+    case "post":
+      hideMenuUI();
+      setShapeKeysOpen(false);
+      flyToView("post", { onComplete: () => showModal(modals.post, "post") });
+      break;
+    case "film":
+      hideMenuUI();
+      setShapeKeysOpen(true, "Film");
+      flyToView("film", { onComplete: () => showModal(modals.film, "film") });
+      break;
+    case "live":
+      hideMenuUI();
+      setShapeKeysOpen(true, "Live");
+      flyToView("live", { onComplete: () => showModal(modals.live, "live") });
+      break;
+    case "about":
+      hideMenuUI();
+      flyToView("aboutMe", { onComplete: () => showAboutBox() });
+      break;
+    case "contact":
+      openGetInTouch();
+      break;
+  }
 }
 
 // Menu listeners
@@ -870,6 +923,10 @@ if (!PRELOAD_REELS) {
 const showModal = async (modal, modalKey = null) => {
   console.log(`Opening modal: ${modalKey}`);
 
+  if (modalKey) {
+    setDeepLinkView(modalKey);
+  }
+
   modal.style.display = "block";
   modal.style.visibility = "visible";
   modal.style.pointerEvents = "auto";
@@ -911,6 +968,7 @@ const showModal = async (modal, modalKey = null) => {
 
 const hideModal = (modal) => {
   globalCloseBtn.style.display = "none";
+  clearDeepLinkView();
   suppressHoverUntil = performance.now() + 800;
   hoverArmed = false;
   isCameraMoving = true;
