@@ -108,7 +108,7 @@ if (contactForm) {
 
     const submitButton = contactForm.querySelector("button[type='submit']");
     submitButton.disabled = true;
-    contactFormStatus.textContent = "Wird gesendet...";
+    contactFormStatus.textContent = "Sending...";
 
     try {
       const response = await fetch(contactForm.action, {
@@ -120,10 +120,10 @@ if (contactForm) {
       if (!response.ok) throw new Error("Contact form request failed");
 
       contactForm.reset();
-      contactFormStatus.textContent = "Danke, deine Nachricht wurde gesendet.";
+      contactFormStatus.textContent = "Thank you, your message has been sent.";
     } catch (error) {
       console.error(error);
-      contactFormStatus.textContent = "Das Senden ist fehlgeschlagen. Bitte versuche es erneut.";
+      contactFormStatus.textContent = "Sending failed. Please try again.";
     } finally {
       submitButton.disabled = false;
     }
